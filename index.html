@@ -1,0 +1,3318 @@
+<!DOCTYPE html>
+<html lang="th" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>MedReminder PRO - ระบบแจ้งเตือนทานยาและผู้ช่วยเภสัชกรอัจฉริยะ</title>
+
+    <!-- PWA & Mobile Web App Meta Tags -->
+    <meta name="theme-color" content="#0d9488">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="MedReminder">
+    <meta name="application-name" content="MedReminder PRO">
+    <link id="dynamicManifestLink" rel="manifest" href="">
+    <link id="appleTouchIconLink" rel="apple-touch-icon" href="">
+    <link id="faviconLink" rel="icon" type="image/png" href="">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Prompt', 'sans-serif'],
+                    },
+                    colors: {
+                        obsidian: '#090d16',
+                        carddark: '#111827',
+                    },
+                    animation: {
+                        'alarm-flash': 'alarmFlash 1s infinite alternate',
+                        'bounce-short': 'bounce 0.9s infinite',
+                        'pulse-slow': 'pulse 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    },
+                    keyframes: {
+                        alarmFlash: {
+                            '0%': { backgroundColor: 'rgba(244, 63, 94, 0.22)' },
+                            '100%': { backgroundColor: 'rgba(20, 184, 166, 0.22)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts (Prompt) -->
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- html2pdf for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Prompt', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        .safe-top-header {
+            padding-top: env(safe-area-inset-top);
+        }
+        .tabular-nums {
+            font-variant-numeric: tabular-nums;
+        }
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.45); border-radius: 9999px; }
+        .dark ::-webkit-scrollbar-thumb { background: rgba(71, 85, 105, 0.65); }
+
+        @keyframes toastSlideIn {
+            from { opacity: 0; transform: translateY(14px) scale(0.97); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .animate-toast {
+            animation: toastSlideIn 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .progress-ring-circle {
+            transition: stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+    </style>
+</head>
+<body class="bg-[#f4f7f8] dark:bg-[#090d16] text-slate-800 dark:text-slate-100 min-h-full flex flex-col overflow-x-hidden transition-colors duration-200">
+
+    <!-- TOAST NOTIFICATION CONTAINER -->
+    <div id="toastContainer" class="fixed bottom-4 right-4 left-4 sm:left-auto sm:w-96 z-[120] flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- LOGIN OVERLAY MODAL -->
+    <div id="loginOverlay" class="fixed inset-0 bg-slate-950/85 backdrop-blur-xl z-[100] flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-[#111827] rounded-3xl p-6 sm:p-8 max-w-sm w-full shadow-2xl space-y-6 border border-slate-200/80 dark:border-slate-800 text-center">
+            <div class="w-20 h-20 bg-gradient-to-br from-teal-500 to-emerald-600 text-white rounded-3xl flex items-center justify-center text-3xl mx-auto shadow-lg shadow-teal-500/25">
+                <i class="fa-solid fa-capsules"></i>
+            </div>
+            <div>
+                <div class="inline-flex items-center gap-1.5 mb-1">
+                    <h2 class="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">MedReminder</h2>
+                    <span class="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-amber-400/20 text-amber-600 dark:text-amber-400 border border-amber-400/30">PRO</span>
+                </div>
+                <p class="text-xs text-slate-500 dark:text-slate-400">ผู้ช่วยแจ้งเตือนทานยาและเภสัชกรอัจฉริยะส่วนตัว</p>
+            </div>
+
+            <form onsubmit="handleLogin(event)" class="space-y-3.5 text-left">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1.5">ชื่อผู้ใช้งาน *</label>
+                    <input type="text" id="loginUsername" required placeholder="เช่น seawhu หรือ ชื่อของคุณ" class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 dark:text-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1.5">รหัสผ่าน *</label>
+                    <input type="password" id="loginPassword" required placeholder="••••••••" class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 dark:text-white">
+                </div>
+                <button type="submit" class="w-full py-3.5 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-bold rounded-2xl shadow-lg shadow-teal-600/25 transition text-sm flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-right-to-bracket"></i> เข้าสู่ระบบใช้งาน
+                </button>
+            </form>
+            <p class="text-[11px] text-slate-400">ข้อมูลรายการยาและประวัติจะถูกบันทึกแยกตามชื่อผู้ใช้งาน</p>
+        </div>
+    </div>
+
+    <!-- RESPONSIVE HEADER / NAVBAR (Zero Mobile Overlap) -->
+    <header class="safe-top-header bg-white/90 dark:bg-[#0d1320]/90 backdrop-blur-xl border-b border-slate-200/80 dark:border-slate-800/90 sticky top-0 z-30 transition-colors">
+        <div class="max-w-6xl mx-auto px-2.5 sm:px-5 h-14 sm:h-16 flex items-center justify-between gap-1.5 sm:gap-2">
+            <!-- Left: Brand Identity -->
+            <div class="flex items-center gap-2 min-w-0 flex-1">
+                <div class="w-8 h-8 sm:w-9 sm:h-9 bg-gradient-to-br from-teal-500 to-emerald-600 rounded-xl flex items-center justify-center text-white text-sm sm:text-base shadow-md shadow-teal-500/20 shrink-0">
+                    <i class="fa-solid fa-pills"></i>
+                </div>
+                <div class="min-w-0 flex flex-col justify-center">
+                    <div class="flex items-center gap-1 min-w-0">
+                        <span class="text-sm sm:text-base font-extrabold tracking-tight text-slate-900 dark:text-white truncate">MedReminder</span>
+                        <span class="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-amber-400/20 text-amber-600 dark:text-amber-400 border border-amber-400/30 shrink-0">PRO</span>
+                    </div>
+                    <p id="todayDateSubtitle" class="text-[10px] text-slate-400 dark:text-slate-500 hidden md:block truncate leading-tight"></p>
+                </div>
+            </div>
+
+            <!-- Right: Install App Button, User Chip, Live Clock & Action Buttons -->
+            <div class="flex items-center gap-1 sm:gap-1.5 shrink-0">
+                <!-- PWA Install App Button (Auto-hidden when running in Standalone App Mode) -->
+                <button id="installAppHeaderBtn" onclick="handleInstallButtonClick()" class="px-2 sm:px-3 py-1.5 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white text-[11px] sm:text-xs font-bold shadow-sm shadow-teal-600/20 flex items-center gap-1.5 shrink-0 transition" title="ติดตั้งเป็นแอปลงหน้าจอโฮม">
+                    <i class="fa-solid fa-mobile-screen-button text-xs"></i>
+                    <span class="hidden min-[360px]:inline">ติดตั้งแอป</span>
+                </button>
+
+                <!-- User Badge -->
+                <div class="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl bg-slate-100/90 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 text-xs font-semibold text-slate-700 dark:text-slate-200">
+                    <i class="fa-solid fa-circle-user text-teal-600 dark:text-teal-400 shrink-0"></i>
+                    <span id="displayUsername" class="max-w-[44px] sm:max-w-[110px] truncate">Guest</span>
+                </div>
+
+                <!-- Realtime Clock (Desktop) -->
+                <div class="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-600 dark:text-teal-400 font-mono tabular-nums text-xs font-bold">
+                    <i class="fa-regular fa-clock"></i>
+                    <span id="clockDisplay">00:00:00</span>
+                </div>
+
+                <!-- Dark/Light Theme Button -->
+                <button onclick="toggleDarkMode()" class="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-center shrink-0 transition" title="สลับธีมมืด/สว่าง">
+                    <i id="themeIcon" class="fa-solid fa-moon text-xs"></i>
+                </button>
+
+                <!-- Settings Button -->
+                <button onclick="openSettingsModal()" class="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-center relative shrink-0 transition" title="ตั้งค่าระบบ & เสียงเตือน">
+                    <i class="fa-solid fa-gear text-xs"></i>
+                    <span id="audioStatusDot" class="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-400 ring-2 ring-white dark:ring-slate-800"></span>
+                </button>
+
+                <!-- Logout Button -->
+                <button onclick="logout()" class="w-8 h-8 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/50 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200/80 dark:border-rose-900/50 flex items-center justify-center shrink-0 transition" title="ออกจากระบบ">
+                    <i class="fa-solid fa-right-from-bracket text-xs"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- NOTIFICATION PERMISSION BANNER -->
+    <div id="permBanner" class="bg-amber-50 dark:bg-amber-950/50 border-b border-amber-200/80 dark:border-amber-900/50 px-3 sm:px-5 py-2.5 text-xs text-amber-800 dark:text-amber-300 hidden">
+        <div class="flex items-center justify-between gap-2 max-w-6xl mx-auto flex-wrap">
+            <span class="flex items-center gap-1.5">
+                <i class="fa-solid fa-bell text-amber-500"></i>
+                <span>เปิดสิทธิ์การแจ้งเตือนและระบบเสียง เพื่อให้ปลุกเตือนตรงเวลาแม้อยู่หน้าอื่น</span>
+            </span>
+            <button onclick="enableFullNotifications()" class="bg-amber-600 hover:bg-amber-700 text-white font-semibold px-3.5 py-1.5 rounded-xl transition shadow-sm shrink-0">
+                เปิดการแจ้งเตือน
+            </button>
+        </div>
+    </div>
+
+    <!-- MAIN BENTO LAYOUT -->
+    <main class="max-w-6xl mx-auto px-3 sm:px-5 py-5 sm:py-6 flex-1 w-full grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6">
+
+        <!-- LEFT COLUMN: Bento Progress Ring, 7-Day Chart & Add/Edit Form (4 Cols) -->
+        <div class="lg:col-span-4 space-y-5 sm:space-y-6">
+
+            <!-- BENTO CARD 1: Daily Progress Ring & 7-Day Adherence -->
+            <div class="bg-white/95 dark:bg-[#111827]/95 backdrop-blur-md p-5 rounded-3xl shadow-sm border border-slate-200/80 dark:border-slate-800/90 transition-all">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="font-bold text-slate-800 dark:text-slate-100 text-sm flex items-center gap-2">
+                        <span class="w-7 h-7 rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400 flex items-center justify-center text-xs">
+                            <i class="fa-solid fa-chart-pie"></i>
+                        </span>
+                        <span>ภาพรวมการทานยาวันนี้</span>
+                    </h2>
+                    <span id="todayBadgePill" class="text-[11px] font-bold text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/70 border border-teal-200/70 dark:border-teal-800/60 px-2.5 py-0.5 rounded-full">
+                        วันนี้
+                    </span>
+                </div>
+
+                <!-- Circular Progress Ring + 3 Stat Tiles -->
+                <div class="flex items-center gap-4 mb-5">
+                    <!-- SVG Ring -->
+                    <div class="relative w-24 h-24 shrink-0 flex items-center justify-center">
+                        <svg class="w-24 h-24" viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="40" stroke-width="10" fill="transparent" class="text-slate-100 dark:text-slate-800" stroke="currentColor" />
+                            <circle id="progressRingCircle" cx="50" cy="50" r="40" stroke-width="10" fill="transparent" stroke-linecap="round"
+                                stroke-dasharray="251.2" stroke-dashoffset="251.2"
+                                class="progress-ring-circle text-teal-500" stroke="currentColor" />
+                        </svg>
+                        <div class="absolute inset-0 flex flex-col items-center justify-center text-center">
+                            <span id="progressPercent" class="text-lg font-extrabold text-slate-900 dark:text-white tabular-nums leading-none">0%</span>
+                            <span class="text-[9px] font-semibold text-slate-400 mt-1">สำเร็จ</span>
+                        </div>
+                    </div>
+
+                    <!-- 3 Bento Metric Boxes -->
+                    <div class="grid grid-cols-3 gap-1.5 flex-1 text-center">
+                        <div class="p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
+                            <p class="text-[10px] text-slate-400 font-medium">มื้อวันนี้</p>
+                            <p id="statTotal" class="text-base font-extrabold text-slate-800 dark:text-slate-100 mt-0.5 tabular-nums">0</p>
+                        </div>
+                        <div class="p-2.5 bg-emerald-50/70 dark:bg-emerald-950/35 rounded-2xl border border-emerald-200/60 dark:border-emerald-800/40">
+                            <p class="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">ทานแล้ว</p>
+                            <p id="statTaken" class="text-base font-extrabold text-emerald-600 dark:text-emerald-400 mt-0.5 tabular-nums">0</p>
+                        </div>
+                        <div class="p-2.5 bg-amber-50/70 dark:bg-amber-950/35 rounded-2xl border border-amber-200/60 dark:border-amber-800/40">
+                            <p class="text-[10px] text-amber-600 dark:text-amber-400 font-medium">คงเหลือ</p>
+                            <p id="statPending" class="text-base font-extrabold text-amber-600 dark:text-amber-400 mt-0.5 tabular-nums">0</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 7-Day Adherence Capsule Chart -->
+                <div class="pt-4 border-t border-slate-100 dark:border-slate-800/80">
+                    <div class="flex justify-between items-center mb-2.5">
+                        <span class="text-[11px] font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                            <i class="fa-solid fa-calendar-check text-teal-500"></i> วินัยการทานยา 7 วันล่าสุด
+                        </span>
+                        <span id="avgAdherenceLabel" class="text-[10px] font-bold text-teal-600 dark:text-teal-400 bg-teal-500/10 px-2 py-0.5 rounded-full tabular-nums">เฉลี่ย 0%</span>
+                    </div>
+                    <div id="adherenceChart" class="grid grid-cols-7 gap-1.5 items-end h-24 pt-1">
+                        <!-- Dynamic 7-day capsule bars -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- BENTO CARD 2: Add / Edit Medication Form -->
+            <div class="bg-white/95 dark:bg-[#111827]/95 backdrop-blur-md p-5 rounded-3xl shadow-sm border border-slate-200/80 dark:border-slate-800/90 transition-all">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="font-bold text-slate-800 dark:text-slate-100 text-sm flex items-center gap-2">
+                        <span class="w-7 h-7 rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400 flex items-center justify-center text-xs">
+                            <i class="fa-solid fa-circle-plus"></i>
+                        </span>
+                        <span id="formTitle">เพิ่มรายการยาใหม่</span>
+                    </h2>
+                    <button id="cancelEditBtn" onclick="resetForm()" class="text-xs text-rose-500 hover:underline hidden font-semibold">ยกเลิกแก้ไข</button>
+                </div>
+
+                <form id="medForm" onsubmit="handleFormSubmit(event)" class="space-y-4">
+                    <input type="hidden" id="editId">
+
+                    <!-- Drug Name + AI Autofill -->
+                    <div>
+                        <div class="flex justify-between items-center mb-1.5 gap-2">
+                            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300">ชื่อยา *</label>
+                            <button type="button" id="aiAutoFillBtn" onclick="aiAutoFillMedication()" class="text-[11px] font-bold px-2.5 py-1 rounded-xl bg-gradient-to-r from-teal-500/15 to-indigo-500/15 hover:from-teal-500/25 hover:to-indigo-500/25 text-teal-700 dark:text-teal-300 border border-teal-400/40 dark:border-teal-700/60 transition flex items-center gap-1 shadow-xs">
+                                <span>✨ เติมข้อมูลอัตโนมัติ</span>
+                            </button>
+                        </div>
+                        <input type="text" id="medName" required placeholder="เช่น พาราเซตามอล, ไอบูโพรเฟน, โอเมพราโซล" class="w-full px-3.5 py-2.5 text-sm bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 dark:text-white transition">
+                    </div>
+
+                    <!-- Dosage & Stock -->
+                    <div class="grid grid-cols-2 gap-2.5">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1.5">ขนาดยา *</label>
+                            <input type="text" id="medDosage" required placeholder="เช่น 1 เม็ด" class="w-full px-3.5 py-2.5 text-sm bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 dark:text-white transition">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1.5">จำนวนคลัง (เม็ด)</label>
+                            <input type="number" id="medStock" min="0" placeholder="เช่น 30" class="w-full px-3.5 py-2.5 text-sm bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 dark:text-white tabular-nums">
+                        </div>
+                    </div>
+
+                    <!-- Time Slots + Quick Time Preset Pills -->
+                    <div>
+                        <div class="flex justify-between items-center mb-1.5">
+                            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300">เวลาเตือน *</label>
+                            <button type="button" onclick="addTimeSlot()" class="text-xs text-teal-600 dark:text-teal-400 font-bold hover:underline flex items-center gap-1">
+                                <i class="fa-solid fa-plus text-[10px]"></i> เพิ่มเวลา
+                            </button>
+                        </div>
+
+                        <!-- Quick Time Presets -->
+                        <div class="grid grid-cols-4 gap-1.5 mb-2">
+                            <button type="button" onclick="toggleQuickTimePreset('08:00')" data-preset="08:00" class="preset-time-btn py-1.5 px-1 rounded-xl text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/70 dark:border-slate-700 hover:border-teal-400 transition text-center">
+                                เช้า 08:00
+                            </button>
+                            <button type="button" onclick="toggleQuickTimePreset('12:00')" data-preset="12:00" class="preset-time-btn py-1.5 px-1 rounded-xl text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/70 dark:border-slate-700 hover:border-teal-400 transition text-center">
+                                กลางวัน 12:00
+                            </button>
+                            <button type="button" onclick="toggleQuickTimePreset('18:00')" data-preset="18:00" class="preset-time-btn py-1.5 px-1 rounded-xl text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/70 dark:border-slate-700 hover:border-teal-400 transition text-center">
+                                เย็น 18:00
+                            </button>
+                            <button type="button" onclick="toggleQuickTimePreset('21:00')" data-preset="21:00" class="preset-time-btn py-1.5 px-1 rounded-xl text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/70 dark:border-slate-700 hover:border-teal-400 transition text-center">
+                                ก่อนนอน 21:00
+                            </button>
+                        </div>
+
+                        <div id="timeSlotsContainer" class="space-y-2">
+                            <!-- Dynamic Time Inputs -->
+                        </div>
+                    </div>
+
+                    <!-- Meal Timing Pills -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1.5">มื้ออาหาร</label>
+                        <input type="hidden" id="medMeal" value="หลังอาหาร">
+                        <div id="mealPillsContainer" class="flex flex-wrap gap-1.5">
+                            <button type="button" onclick="selectMealPill('หลังอาหาร')" data-meal="หลังอาหาร" class="meal-pill-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-teal-600 text-white shadow-xs transition">หลังอาหาร</button>
+                            <button type="button" onclick="selectMealPill('ก่อนอาหาร')" data-meal="ก่อนอาหาร" class="meal-pill-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 transition">ก่อนอาหาร</button>
+                            <button type="button" onclick="selectMealPill('พร้อมอาหาร')" data-meal="พร้อมอาหาร" class="meal-pill-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 transition">พร้อมอาหาร</button>
+                            <button type="button" onclick="selectMealPill('ก่อนนอน')" data-meal="ก่อนนอน" class="meal-pill-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 transition">ก่อนนอน</button>
+                            <button type="button" onclick="selectMealPill('ตามอาการ')" data-meal="ตามอาการ" class="meal-pill-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 transition">ตามอาการ</button>
+                        </div>
+                    </div>
+
+                    <!-- Weekly Days Selector -->
+                    <div>
+                        <div class="flex justify-between items-center mb-1.5">
+                            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300">วันที่ต้องทานประจำสัปดาห์</label>
+                            <button type="button" onclick="toggleAllDays()" class="text-[11px] text-teal-600 dark:text-teal-400 hover:underline font-bold">เลือกทุกวัน</button>
+                        </div>
+                        <div class="grid grid-cols-7 gap-1 text-center" id="daysCheckboxContainer">
+                            <label class="cursor-pointer bg-slate-100 dark:bg-slate-800 py-2 rounded-xl text-[11px] font-bold text-slate-600 dark:text-slate-300 transition select-none">
+                                <input type="checkbox" value="จ." class="hidden day-checkbox" checked> จ.
+                            </label>
+                            <label class="cursor-pointer bg-slate-100 dark:bg-slate-800 py-2 rounded-xl text-[11px] font-bold text-slate-600 dark:text-slate-300 transition select-none">
+                                <input type="checkbox" value="อ." class="hidden day-checkbox" checked> อ.
+                            </label>
+                            <label class="cursor-pointer bg-slate-100 dark:bg-slate-800 py-2 rounded-xl text-[11px] font-bold text-slate-600 dark:text-slate-300 transition select-none">
+                                <input type="checkbox" value="พ." class="hidden day-checkbox" checked> พ.
+                            </label>
+                            <label class="cursor-pointer bg-slate-100 dark:bg-slate-800 py-2 rounded-xl text-[11px] font-bold text-slate-600 dark:text-slate-300 transition select-none">
+                                <input type="checkbox" value="พฤ." class="hidden day-checkbox" checked> พฤ.
+                            </label>
+                            <label class="cursor-pointer bg-slate-100 dark:bg-slate-800 py-2 rounded-xl text-[11px] font-bold text-slate-600 dark:text-slate-300 transition select-none">
+                                <input type="checkbox" value="ศ." class="hidden day-checkbox" checked> ศ.
+                            </label>
+                            <label class="cursor-pointer bg-slate-100 dark:bg-slate-800 py-2 rounded-xl text-[11px] font-bold text-slate-600 dark:text-slate-300 transition select-none">
+                                <input type="checkbox" value="ส." class="hidden day-checkbox" checked> ส.
+                            </label>
+                            <label class="cursor-pointer bg-slate-100 dark:bg-slate-800 py-2 rounded-xl text-[11px] font-bold text-slate-600 dark:text-slate-300 transition select-none">
+                                <input type="checkbox" value="อา." class="hidden day-checkbox" checked> อา.
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Special Warning -->
+                    <div>
+                        <label class="block text-xs font-semibold text-amber-600 dark:text-amber-400 mb-1.5 flex items-center gap-1">
+                            <i class="fa-solid fa-triangle-exclamation"></i> ข้อควรระวัง / คำเตือนพิเศษ
+                        </label>
+                        <input type="text" id="medWarning" placeholder="เช่น ห้ามทานตอนท้องว่าง, ทานแล้วง่วง" class="w-full px-3.5 py-2.5 text-sm bg-amber-50/50 dark:bg-slate-800/90 border border-amber-200/80 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 dark:text-white transition">
+                    </div>
+
+                    <!-- Additional Note -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1.5">คำแนะนำ / หมายเหตุเพิ่มเติม</label>
+                        <input type="text" id="medNote" placeholder="เช่น ดื่มน้ำตามมากๆ" class="w-full px-3.5 py-2.5 text-sm bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 dark:text-white transition">
+                    </div>
+
+                    <button type="submit" id="submitBtn" class="w-full bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-bold py-3.5 rounded-2xl transition shadow-lg shadow-teal-600/20 text-sm flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-floppy-disk"></i> บันทึกรายการยา
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- RIGHT COLUMN: Hero Next-Dose Banner, Filter Controls & Medication List (8 Cols) -->
+        <div class="lg:col-span-8 space-y-5">
+
+            <!-- HERO NEXT-DOSE COUNTDOWN BANNER -->
+            <div id="nextDoseBanner" class="bg-gradient-to-r from-teal-600 via-emerald-600 to-teal-700 text-white p-5 rounded-3xl shadow-lg shadow-teal-600/15 border border-teal-400/30 transition-all">
+                <!-- Dynamic Hero Content -->
+            </div>
+
+            <!-- Controls & Action Toolbar -->
+            <div class="bg-white/95 dark:bg-[#111827]/95 backdrop-blur-md p-4 rounded-3xl shadow-sm border border-slate-200/80 dark:border-slate-800/90 space-y-3 transition-all">
+                <div class="flex flex-wrap items-center justify-between gap-2.5">
+                    <!-- Segmented Day View Toggle -->
+                    <div class="inline-flex p-1 bg-slate-100 dark:bg-slate-800/90 rounded-2xl border border-slate-200/70 dark:border-slate-700/80 text-xs font-bold">
+                        <button id="viewTodayBtn" onclick="setDayFilter('today')" class="px-3.5 py-1.5 rounded-xl bg-white dark:bg-slate-900 text-teal-600 dark:text-teal-400 shadow-xs transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-calendar-day"></i>
+                            <span>เฉพาะวันนี้ (<span id="todayShortName">จ.</span>)</span>
+                        </button>
+                        <button id="viewAllDaysBtn" onclick="setDayFilter('all')" class="px-3.5 py-1.5 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-calendar-week"></i>
+                            <span>ทั้งหมดทุกวัน</span>
+                        </button>
+                    </div>
+
+                    <!-- AI Interaction Checker & Export Buttons -->
+                    <div class="flex flex-wrap items-center gap-2 text-xs">
+                        <button onclick="openDrugInteractionModal()" class="px-3.5 py-2 bg-gradient-to-r from-indigo-600 to-teal-600 hover:from-indigo-700 hover:to-teal-700 text-white rounded-xl transition flex items-center gap-1.5 font-bold shadow-sm shadow-indigo-600/20">
+                            <span>🩺 ตรวจปฏิกิริยาระหว่างยา</span>
+                        </button>
+                        <button onclick="exportCSV()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-xl transition text-slate-700 dark:text-slate-200 flex items-center gap-1.5 font-semibold border border-slate-200/70 dark:border-slate-700" title="ส่งออกไฟล์ CSV">
+                            <i class="fa-solid fa-file-excel text-emerald-600"></i> <span>CSV</span>
+                        </button>
+                        <button onclick="exportPDF()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-xl transition text-slate-700 dark:text-slate-200 flex items-center gap-1.5 font-semibold border border-slate-200/70 dark:border-slate-700" title="สร้างรายงาน PDF">
+                            <i class="fa-solid fa-file-pdf text-rose-500"></i> <span>PDF</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Search & Status Filter -->
+                <div class="flex flex-wrap items-center gap-2.5">
+                    <div class="relative flex-1 min-w-[180px]">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-xs text-slate-400"></i>
+                        <input type="text" id="searchInput" oninput="renderMedications()" placeholder="ค้นหาชื่อยา หรือคำเตือน..." class="w-full pl-9 pr-3.5 py-2 text-xs bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 dark:text-white">
+                    </div>
+                    <select id="filterStatus" onchange="renderMedications()" class="px-3.5 py-2 text-xs bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 dark:text-white font-semibold">
+                        <option value="all">สถานะทั้งหมด</option>
+                        <option value="pending">ยังทานไม่ครบ</option>
+                        <option value="taken">ทานครบแล้ว</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Tab Navigation -->
+            <div class="border-b border-slate-200 dark:border-slate-800 flex space-x-6 text-xs font-bold px-1">
+                <button id="tabMedsBtn" onclick="switchTab('meds')" class="pb-3 border-b-2 border-teal-600 text-teal-600 dark:text-teal-400 flex items-center gap-2 transition">
+                    <i class="fa-solid fa-list-check"></i> รายการยา (<span id="countMeds" class="tabular-nums">0</span>)
+                </button>
+                <button id="tabLogsBtn" onclick="switchTab('logs')" class="pb-3 border-b-2 border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 flex items-center gap-2 transition">
+                    <i class="fa-solid fa-clock-rotate-left"></i> ประวัติการทานยา (<span id="countLogs" class="tabular-nums">0</span>)
+                </button>
+            </div>
+
+            <!-- Tab 1: Medication List View -->
+            <div id="tabMedsContent" class="space-y-3.5">
+                <div id="medList" class="space-y-3.5">
+                    <!-- Dynamic Medication Cards -->
+                </div>
+            </div>
+
+            <!-- Tab 2: Logs & History View -->
+            <div id="tabLogsContent" class="hidden bg-white/95 dark:bg-[#111827]/95 backdrop-blur-md p-5 rounded-3xl shadow-sm border border-slate-200/80 dark:border-slate-800/90">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-sm font-bold text-slate-800 dark:text-slate-100">ประวัติการทานยาย้อนหลัง</h3>
+                    <button onclick="confirmClearLogs()" class="text-xs text-rose-500 hover:underline font-semibold">ล้างประวัติทั้งหมด</button>
+                </div>
+                <div id="logsContainer" class="space-y-2.5 max-h-[450px] overflow-y-auto pr-1">
+                    <!-- Dynamic Logs -->
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="border-t border-slate-200/80 dark:border-slate-800/80 text-center py-5 text-xs text-slate-400 dark:text-slate-500 bg-white/40 dark:bg-[#0d1320]/40">
+        MedReminder PRO &copy; 2026 • ระบบแจ้งเตือนทานยาและผู้ช่วยเภสัชกรอัจฉริยะ
+    </footer>
+
+    <!-- ALARM POPUP MODAL -->
+    <div id="alarmModal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="absolute inset-0 animate-alarm-flash pointer-events-none"></div>
+
+        <div class="relative bg-white dark:bg-[#111827] rounded-3xl max-w-md w-full p-6 text-center shadow-2xl border border-rose-500/30 z-10 space-y-4">
+            <div class="w-20 h-20 bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 rounded-full flex items-center justify-center text-3xl mx-auto animate-bounce-short shadow-lg shadow-rose-500/20 border border-rose-200/60 dark:border-rose-900/40">
+                <i class="fa-solid fa-bell"></i>
+            </div>
+
+            <div class="flex items-center justify-center gap-2">
+                <span class="bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-300 text-xs font-extrabold px-3 py-1 rounded-full uppercase tracking-wider inline-block">
+                    ถึงเวลาทานยาแล้ว!
+                </span>
+                <span id="alarmSnoozedIndicator" class="hidden bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300 text-xs font-bold px-2.5 py-1 rounded-full">
+                    เตือนซ้ำ
+                </span>
+            </div>
+
+            <div>
+                <h3 id="alarmTitle" class="text-2xl font-extrabold text-slate-900 dark:text-white">ชื่อยา</h3>
+                <p id="alarmDosage" class="text-sm font-medium text-slate-600 dark:text-slate-300 mt-1">ขนาดยา</p>
+            </div>
+
+            <div id="alarmWarningBox" class="hidden text-xs text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 p-3 rounded-2xl border border-amber-200 dark:border-amber-800/80 font-medium text-left flex items-start gap-2.5">
+                <i class="fa-solid fa-triangle-exclamation text-amber-500 mt-0.5 text-sm"></i>
+                <span id="alarmWarningText">ข้อควรระวัง</span>
+            </div>
+
+            <p id="alarmNote" class="text-xs text-slate-500 dark:text-slate-400 italic">หมายเหตุ</p>
+
+            <div class="space-y-2.5 pt-2">
+                <button onclick="confirmTakeAlarm()" class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold py-3.5 rounded-2xl transition shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 text-sm">
+                    <i class="fa-solid fa-circle-check text-base"></i> ทานยาเรียบร้อยแล้ว (<span id="alarmConfirmSlotText" class="tabular-nums">08:00</span>)
+                </button>
+                <button onclick="snoozeAlarm(5)" class="w-full bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/50 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 font-semibold py-3 rounded-2xl transition text-xs flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-clock-rotate-left"></i> เลื่อนเตือนอีก 5 นาที (Snooze)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- QUICK STOCK REFILL MODAL -->
+    <div id="refillModal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-[#111827] rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-200/80 dark:border-slate-800 space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 class="font-bold text-sm text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    <i class="fa-solid fa-boxes-stacked text-teal-600"></i> เติมสต็อกยาในคลัง
+                </h3>
+                <button onclick="closeRefillModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 w-8 h-8 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-slate-800"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="p-3.5 bg-slate-50 dark:bg-slate-800/80 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
+                <p id="refillMedName" class="font-bold text-sm text-slate-800 dark:text-white">ชื่อยา</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">คงเหลือปัจจุบัน: <span id="refillCurrentStock" class="font-bold text-teal-600 dark:text-teal-400 tabular-nums">0</span> เม็ด</p>
+            </div>
+
+            <div class="space-y-2">
+                <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400">เลือกจำนวนที่ต้องการเติมเพิ่ม (เม็ด)</label>
+                <div class="grid grid-cols-4 gap-2">
+                    <button type="button" onclick="setRefillAmount(10)" class="py-2 rounded-xl bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/60 dark:hover:bg-teal-900/60 text-teal-700 dark:text-teal-300 font-bold text-xs border border-teal-200 dark:border-teal-800/50 transition">+10</button>
+                    <button type="button" onclick="setRefillAmount(20)" class="py-2 rounded-xl bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/60 dark:hover:bg-teal-900/60 text-teal-700 dark:text-teal-300 font-bold text-xs border border-teal-200 dark:border-teal-800/50 transition">+20</button>
+                    <button type="button" onclick="setRefillAmount(30)" class="py-2 rounded-xl bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/60 dark:hover:bg-teal-900/60 text-teal-700 dark:text-teal-300 font-bold text-xs border border-teal-200 dark:border-teal-800/50 transition">+30</button>
+                    <button type="button" onclick="setRefillAmount(60)" class="py-2 rounded-xl bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/60 dark:hover:bg-teal-900/60 text-teal-700 dark:text-teal-300 font-bold text-xs border border-teal-200 dark:border-teal-800/50 transition">+60</button>
+                </div>
+                <input type="number" id="refillAmountInput" min="1" value="30" class="w-full mt-2 px-3.5 py-2.5 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 dark:text-white font-bold text-center tabular-nums">
+            </div>
+
+            <div class="flex gap-2 pt-1">
+                <button type="button" onclick="closeRefillModal()" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 font-semibold rounded-xl text-xs transition">ยกเลิก</button>
+                <button type="button" onclick="confirmRefillStock()" class="flex-1 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl text-xs shadow-md shadow-teal-600/20 transition">ยืนยันเติมสต็อก</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI DRUG INTERACTION CHECKER MODAL (100% Reliable Hybrid Engine) -->
+    <div id="aiInteractionModal" class="fixed inset-0 bg-slate-950/75 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 sm:p-4">
+        <div class="bg-white dark:bg-[#111827] rounded-3xl max-w-2xl w-full p-5 sm:p-6 shadow-2xl border border-slate-200/80 dark:border-slate-800 space-y-4 max-h-[90vh] flex flex-col">
+            <!-- Header -->
+            <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3 shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-teal-500 text-white flex items-center justify-center text-base shadow-md shadow-indigo-500/20 shrink-0">
+                        <i class="fa-solid fa-user-doctor"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-sm sm:text-base text-slate-900 dark:text-white">AI เภสัชกร: ตรวจปฏิกิริยาระหว่างยา</h3>
+                        <p class="text-[11px] text-slate-400">ตรวจสอบความเข้ากันได้ของยา อาหารเสริม และช่วงเวลาทาน</p>
+                    </div>
+                </div>
+                <button onclick="closeDrugInteractionModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 w-8 h-8 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-slate-800 shrink-0"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <!-- Interactive Drug Chip Builder -->
+            <div class="bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-2xl border border-slate-200/70 dark:border-slate-700/70 space-y-2.5 shrink-0">
+                <div class="flex items-center justify-between">
+                    <span class="text-[11px] font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                        <i class="fa-solid fa-capsules text-teal-500"></i> รายการยาและอาหารเสริมที่นำมาตรวจ (<span id="interactionDrugCount" class="tabular-nums">0</span>)
+                    </span>
+                    <button type="button" onclick="resetInteractionDrugsFromProfile()" class="text-[11px] text-teal-600 dark:text-teal-400 hover:underline font-semibold">รีเซ็ตจากรายการยาของฉัน</button>
+                </div>
+
+                <!-- Selected Drug Chips -->
+                <div id="interactionChipsContainer" class="flex flex-wrap gap-1.5 min-h-[28px]">
+                    <!-- Dynamic Chips -->
+                </div>
+
+                <!-- Add Extra Drug / Supplement Input -->
+                <div class="flex gap-2">
+                    <input type="text" id="extraInteractionDrugInput" onkeydown="if(event.key==='Enter'){event.preventDefault();addExtraInteractionDrug();}" placeholder="พิมพ์ชื่อยาหรืออาหารเสริมอื่นที่ต้องการตรวจร่วม..." class="flex-1 px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 dark:text-white">
+                    <button type="button" onclick="addExtraInteractionDrug()" class="px-3.5 py-2 bg-slate-800 dark:bg-slate-700 hover:bg-slate-700 dark:hover:bg-slate-600 text-white font-bold rounded-xl text-xs transition shrink-0">
+                        + เพิ่ม
+                    </button>
+                    <button type="button" onclick="runDrugInteractionAnalysis()" class="px-3.5 py-2 bg-gradient-to-r from-indigo-600 to-teal-600 hover:from-indigo-700 hover:to-teal-700 text-white font-bold rounded-xl text-xs shadow-sm transition shrink-0 flex items-center gap-1.5">
+                        <i class="fa-solid fa-stethoscope"></i> <span>วิเคราะห์</span>
+                    </button>
+                </div>
+
+                <!-- Quick Test Suggestions -->
+                <div class="flex items-center gap-1.5 flex-wrap pt-0.5">
+                    <span class="text-[10px] text-slate-400 font-medium">ทดสอบเพิ่มด่วน:</span>
+                    <button type="button" onclick="quickAddInteractionTag('ไอบูโพรเฟน (Ibuprofen)')" class="text-[10px] px-2 py-0.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-teal-400 transition">+ ไอบูโพรเฟน</button>
+                    <button type="button" onclick="quickAddInteractionTag('แอสไพริน (Aspirin)')" class="text-[10px] px-2 py-0.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-teal-400 transition">+ แอสไพริน</button>
+                    <button type="button" onclick="quickAddInteractionTag('ยาลดกรด (Antacid)')" class="text-[10px] px-2 py-0.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-teal-400 transition">+ ยาลดกรด</button>
+                    <button type="button" onclick="quickAddInteractionTag('แคลเซียม (Calcium)')" class="text-[10px] px-2 py-0.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-teal-400 transition">+ แคลเซียม</button>
+                    <button type="button" onclick="quickAddInteractionTag('น้ำมันปลา (Fish Oil)')" class="text-[10px] px-2 py-0.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-teal-400 transition">+ น้ำมันปลา</button>
+                </div>
+            </div>
+
+            <!-- Analysis Result Area -->
+            <div id="aiInteractionBody" class="flex-1 overflow-y-auto space-y-3.5 pr-1 text-xs">
+                <!-- Dynamic AI Interaction Results -->
+            </div>
+
+            <!-- Medical Disclaimer -->
+            <div class="p-3 bg-amber-50/80 dark:bg-amber-950/40 rounded-2xl border border-amber-200/80 dark:border-amber-900/50 text-[11px] text-amber-800 dark:text-amber-300 flex items-start gap-2 shrink-0">
+                <i class="fa-solid fa-circle-info text-amber-500 mt-0.5"></i>
+                <span><strong>ข้อจำกัดความรับผิดชอบทางการแพทย์:</strong> ข้อมูลนี้ประมวลผลเพื่อช่วยคัดกรองเบื้องต้นเท่านั้น โปรดปรึกษาแพทย์หรือเภสัชกรก่อนปรับขนาดยาหรือหยุดยาด้วยตนเอง</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- CUSTOM CONFIRMATION MODAL -->
+    <div id="confirmModal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-[110] hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-[#111827] rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-200/80 dark:border-slate-800 space-y-4 text-center">
+            <div class="w-14 h-14 bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 rounded-2xl flex items-center justify-center text-2xl mx-auto border border-rose-100 dark:border-rose-900/40">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <div>
+                <h3 id="confirmTitle" class="font-bold text-base text-slate-900 dark:text-white">ยืนยันการทำรายการ</h3>
+                <p id="confirmMessage" class="text-xs text-slate-500 dark:text-slate-400 mt-1.5">คุณต้องการดำเนินการต่อใช่หรือไม่?</p>
+            </div>
+            <div class="flex gap-2.5 pt-1">
+                <button onclick="closeConfirmModal()" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold rounded-xl text-xs transition">ยกเลิก</button>
+                <button id="confirmOkBtn" class="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs shadow-md shadow-rose-600/20 transition">ยืนยัน</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SETTINGS MODAL (Clean, Without LINE) -->
+    <div id="settingsModal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-[#111827] rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200/80 dark:border-slate-800 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center">
+                <h3 class="font-bold text-sm text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-teal-600"></i> ตั้งค่าระบบ เสียงเตือน & สำรองข้อมูล
+                </h3>
+                <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 w-8 h-8 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-slate-800"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="space-y-4 text-xs">
+                <!-- Alarm Tone & Thai TTS Settings -->
+                <div class="p-4 bg-slate-50 dark:bg-slate-800/70 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 space-y-3.5">
+                    <h4 class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+                        <i class="fa-solid fa-volume-high text-teal-600"></i> เสียงแจ้งเตือนและเสียงอ่านชื่อยา (Thai TTS)
+                    </h4>
+
+                    <div>
+                        <label class="block text-slate-600 dark:text-slate-400 font-semibold mb-1.5">รูปแบบเสียงแจ้งเตือน</label>
+                        <select id="alarmToneSelect" class="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 dark:text-white font-medium">
+                            <option value="gentle">🔔 เสียงกระดิ่งนุ่มนวล (Gentle Chime)</option>
+                            <option value="standard">📟 เสียงบี๊บมาตรฐาน (Standard Beep)</option>
+                            <option value="urgent">🚨 เสียงปลุกฉุกเฉิน (Urgent Alert)</option>
+                        </select>
+                    </div>
+
+                    <div class="flex items-center justify-between pt-1">
+                        <div>
+                            <p class="font-semibold text-slate-700 dark:text-slate-200">🗣️ เสียงพูดอ่านชื่อยาภาษาไทยอัตโนมัติ</p>
+                            <p class="text-[11px] text-slate-400">อ่านชื่อยา ขนาด และมื้ออาหารเมื่อถึงเวลาปลุก</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                            <input type="checkbox" id="ttsToggleInput" class="sr-only peer" checked>
+                            <div class="w-10 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-teal-600"></div>
+                        </label>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between mb-1">
+                            <span class="text-slate-600 dark:text-slate-400 font-semibold">ระดับเสียงเตือน</span>
+                            <span id="volumeVal" class="font-bold text-teal-600 tabular-nums">80%</span>
+                        </div>
+                        <input type="range" id="volumeSlider" min="0" max="100" value="80" oninput="updateVolume(this.value)" class="w-full accent-teal-600">
+                    </div>
+
+                    <button type="button" onclick="testSoundAlert()" class="w-full py-2.5 bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/60 dark:hover:bg-teal-900/60 text-teal-700 dark:text-teal-300 font-bold rounded-xl border border-teal-200 dark:border-teal-800/60 flex items-center justify-center gap-2 transition">
+                        <i class="fa-solid fa-play"></i> ทดสอบเสียงเตือน ระบบสั่น และเสียงอ่านภาษาไทย
+                    </button>
+                </div>
+
+                <!-- Screen Wake Lock & System Diagnostics -->
+                <div class="p-3.5 bg-slate-50 dark:bg-slate-800/70 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 space-y-2.5">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+                                <i class="fa-solid fa-mobile-screen text-teal-600"></i> เปิดหน้าจอค้างไว้ (Wake Lock)
+                            </p>
+                            <p class="text-[11px] text-slate-400">ป้องกันหน้าจอดับขณะเปิดหน้าแอปทิ้งไว้</p>
+                        </div>
+                        <button type="button" onclick="toggleWakeLockManual()" id="wakeLockToggleBtn" class="px-3 py-1.5 rounded-xl bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-[11px] transition">
+                            เปิดใช้งาน
+                        </button>
+                    </div>
+                    <div class="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 space-y-1 text-[11px]">
+                        <div class="flex justify-between">
+                            <span class="text-slate-500">สถานะระบบเสียง (Audio Context):</span>
+                            <span id="audioStateText" class="font-mono font-bold text-amber-500">Uninitialized</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-500">สถานะ Wake Lock:</span>
+                            <span id="wakeLockText" class="font-mono font-bold text-slate-400">Off</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Data Sync & Backup Section -->
+                <div class="p-3.5 bg-teal-50/60 dark:bg-teal-950/30 rounded-2xl border border-teal-200/80 dark:border-teal-900/50 space-y-2">
+                    <h4 class="font-bold text-teal-800 dark:text-teal-300 flex items-center gap-1.5">
+                        <i class="fa-solid fa-cloud-arrow-up"></i> สำรอง & ย้ายข้อมูลระหว่างเครื่อง (JSON)
+                    </h4>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400">ส่งออกไฟล์สำรองข้อมูลเพื่อนำไปเปิดใช้งานบนมือถือหรือคอมพิวเตอร์เครื่องอื่นได้อย่างครบถ้วน</p>
+                    <div class="grid grid-cols-2 gap-2 pt-1">
+                        <button type="button" onclick="exportDataJSON()" class="py-2.5 px-3 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl transition text-center shadow-xs">
+                            <i class="fa-solid fa-download mr-1"></i> สำรองข้อมูล
+                        </button>
+                        <label class="py-2.5 px-3 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl border border-slate-200 dark:border-slate-700 transition text-center cursor-pointer shadow-xs">
+                            <i class="fa-solid fa-upload mr-1"></i> นำเข้าข้อมูล
+                            <input type="file" accept=".json" onchange="importDataJSON(event)" class="hidden">
+                        </label>
+                    </div>
+                </div>
+
+                <!-- PWA App Install Shortcut in Settings -->
+                <div class="p-3.5 bg-slate-50 dark:bg-slate-800/70 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-between gap-2">
+                    <div>
+                        <p class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+                            <i class="fa-solid fa-mobile-screen-button text-teal-600"></i> ติดตั้งแอปลงหน้าจอโฮม (PWA)
+                        </p>
+                        <p id="pwaSettingsStatusText" class="text-[11px] text-slate-400">ใช้งานเต็มหน้าจอเหมือนแอปพลิเคชันจริง</p>
+                    </div>
+                    <button type="button" onclick="closeSettingsModal(); openInstallModal();" class="px-3 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-[11px] shrink-0 transition">
+                        วิธีติดตั้ง
+                    </button>
+                </div>
+
+                <button type="button" onclick="saveSettings()" class="w-full py-3 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-bold rounded-2xl transition shadow-md text-sm">
+                    บันทึกการตั้งค่า
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- INSTALL PWA APP MODAL -->
+    <div id="installAppModal" class="fixed inset-0 bg-slate-950/75 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 sm:p-4">
+        <div class="bg-white dark:bg-[#111827] rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-slate-200/80 dark:border-slate-800 space-y-4 max-h-[92vh] overflow-y-auto">
+            <!-- Header -->
+            <div class="flex justify-between items-start gap-3">
+                <div class="flex items-center gap-3">
+                    <img id="installModalIconPreview" src="" alt="MedReminder App Icon" class="w-13 h-13 w-12 h-12 rounded-2xl shadow-md border border-teal-500/30 shrink-0 bg-teal-600">
+                    <div>
+                        <div class="flex items-center gap-1.5">
+                            <h3 class="font-extrabold text-base text-slate-900 dark:text-white">ติดตั้ง MedReminder PRO</h3>
+                        </div>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400">เพิ่มไอคอนลงหน้าจอโฮม เปิดใช้งานเต็มจอได้ทันที</p>
+                    </div>
+                </div>
+                <button onclick="closeInstallModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 w-8 h-8 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-slate-800 shrink-0">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- One-Click Native Install Banner (Shown when beforeinstallprompt is captured) -->
+            <div id="nativePromptInstallBox" class="hidden p-3.5 rounded-2xl bg-gradient-to-r from-teal-600 to-emerald-600 text-white space-y-2.5 shadow-lg shadow-teal-600/20">
+                <div class="flex items-center gap-2.5">
+                    <i class="fa-solid fa-bolt text-amber-300 text-base"></i>
+                    <p class="text-xs font-bold">อุปกรณ์ของคุณพร้อมติดตั้งแอปในคลิกเดียว!</p>
+                </div>
+                <button type="button" onclick="triggerNativeInstallPrompt()" class="w-full py-2.5 bg-white text-teal-800 hover:bg-teal-50 font-extrabold rounded-xl text-xs shadow-sm transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-download"></i> ติดตั้งแอปลงเครื่องทันที
+                </button>
+            </div>
+
+            <!-- Iframe Preview Warning Notice -->
+            <div id="iframeInstallNotice" class="hidden p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-900/50 text-[11px] text-amber-800 dark:text-amber-300 space-y-1">
+                <p class="font-bold flex items-center gap-1.5">
+                    <i class="fa-solid fa-circle-info text-amber-500"></i> กำลังเปิดอยู่ในหน้าต่างตัวอย่าง (Preview Frame)
+                </p>
+                <p class="leading-relaxed">เบราว์เซอร์จะไม่อนุญาตให้ติดตั้งแอปจากหน้าต่าง Preview โดยตรง ให้กดปุ่ม <strong>"ดาวน์โหลดไฟล์เว็บ (.html)"</strong> ด้านล่าง แล้วนำไปเปิดผ่านลิงก์เว็บ (เช่น Netlify Drop / Tiiny.host) เพื่อกดเพิ่มลงหน้าจอโฮมบนมือถือครับ</p>
+            </div>
+
+            <!-- OS Platform Selector Tabs -->
+            <div>
+                <div class="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/90 rounded-2xl border border-slate-200/70 dark:border-slate-700/80 text-xs font-bold">
+                    <button type="button" id="installTabAndroid" onclick="switchInstallTab('android')" class="py-2 px-2 rounded-xl bg-white dark:bg-slate-900 text-teal-600 dark:text-teal-400 shadow-xs transition flex items-center justify-center gap-1.5">
+                        <i class="fa-brands fa-android text-emerald-500"></i> <span>Android</span>
+                    </button>
+                    <button type="button" id="installTabIos" onclick="switchInstallTab('ios')" class="py-2 px-2 rounded-xl text-slate-500 dark:text-slate-400 transition flex items-center justify-center gap-1.5">
+                        <i class="fa-brands fa-apple"></i> <span>iPhone / iPad</span>
+                    </button>
+                    <button type="button" id="installTabDesktop" onclick="switchInstallTab('desktop')" class="py-2 px-2 rounded-xl text-slate-500 dark:text-slate-400 transition flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-desktop"></i> <span>คอมพิวเตอร์</span>
+                    </button>
+                </div>
+
+                <!-- Android Instructions -->
+                <div id="installGuideAndroid" class="mt-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700/70 space-y-2.5 text-xs">
+                    <p class="font-bold text-slate-800 dark:text-slate-100">ขั้นตอนติดตั้งบน Android (Google Chrome):</p>
+                    <ol class="space-y-2 text-slate-600 dark:text-slate-300">
+                        <li class="flex items-start gap-2.5">
+                            <span class="w-5 h-5 rounded-full bg-teal-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">1</span>
+                            <span>เปิดหน้าเว็บนี้ในแอป <strong>Google Chrome</strong></span>
+                        </li>
+                        <li class="flex items-start gap-2.5">
+                            <span class="w-5 h-5 rounded-full bg-teal-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">2</span>
+                            <span>แตะที่ปุ่ม <strong>จุด 3 จุด (<i class="fa-solid fa-ellipsis-vertical"></i>)</strong> บริเวณมุมขวาบนของเบราว์เซอร์</span>
+                        </li>
+                        <li class="flex items-start gap-2.5">
+                            <span class="w-5 h-5 rounded-full bg-teal-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">3</span>
+                            <span>เลือกเมนู <strong>"ติดตั้งแอป" (Install app)</strong> หรือ <strong>"เพิ่มลงในหน้าจอหลัก"</strong> แล้วกดยืนยัน</span>
+                        </li>
+                    </ol>
+                </div>
+
+                <!-- iOS Instructions -->
+                <div id="installGuideIos" class="hidden mt-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700/70 space-y-2.5 text-xs">
+                    <p class="font-bold text-slate-800 dark:text-slate-100">ขั้นตอนติดตั้งบน iPhone / iPad (Safari):</p>
+                    <ol class="space-y-2 text-slate-600 dark:text-slate-300">
+                        <li class="flex items-start gap-2.5">
+                            <span class="w-5 h-5 rounded-full bg-teal-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">1</span>
+                            <span>เปิดหน้าเว็บนี้ด้วยเบราว์เซอร์ <strong>Safari</strong></span>
+                        </li>
+                        <li class="flex items-start gap-2.5">
+                            <span class="w-5 h-5 rounded-full bg-teal-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">2</span>
+                            <span>แตะปุ่ม <strong>แชร์ (Share <i class="fa-solid fa-arrow-up-from-bracket text-sky-500"></i>)</strong> ที่แถบเมนูด้านล่าง</span>
+                        </li>
+                        <li class="flex items-start gap-2.5">
+                            <span class="w-5 h-5 rounded-full bg-teal-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">3</span>
+                            <span>เลื่อนลงและเลือก <strong>"เพิ่มไปยังหน้าจอโฮม" (Add to Home Screen <i class="fa-regular fa-square-plus"></i>)</strong> จากนั้นกด <strong>"เพิ่ม"</strong></span>
+                        </li>
+                    </ol>
+                </div>
+
+                <!-- Desktop Instructions -->
+                <div id="installGuideDesktop" class="hidden mt-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700/70 space-y-2.5 text-xs">
+                    <p class="font-bold text-slate-800 dark:text-slate-100">ขั้นตอนติดตั้งบนคอมพิวเตอร์ (Chrome / Edge):</p>
+                    <ol class="space-y-2 text-slate-600 dark:text-slate-300">
+                        <li class="flex items-start gap-2.5">
+                            <span class="w-5 h-5 rounded-full bg-teal-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">1</span>
+                            <span>สังเกตที่แถบ Address Bar ด้านขวาบนของเบราว์เซอร์</span>
+                        </li>
+                        <li class="flex items-start gap-2.5">
+                            <span class="w-5 h-5 rounded-full bg-teal-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">2</span>
+                            <span>คลิกที่ไอคอน <strong>ติดตั้งแอป (<i class="fa-solid fa-laptop-medical"></i> / Install)</strong> แล้วกด <strong>"ติดตั้ง"</strong></span>
+                        </li>
+                        <li class="flex items-start gap-2.5">
+                            <span class="w-5 h-5 rounded-full bg-teal-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">3</span>
+                            <span>แอปจะถูกสร้างทางลัดบน Desktop และเปิดใช้งานเป็นหน้าต่างแอปแยกได้ทันที</span>
+                        </li>
+                    </ol>
+                </div>
+            </div>
+
+            <!-- Download Standalone HTML File Box -->
+            <div class="p-3.5 rounded-2xl bg-teal-50/70 dark:bg-teal-950/35 border border-teal-200/80 dark:border-teal-900/50 space-y-2 text-xs">
+                <p class="font-bold text-teal-800 dark:text-teal-300 flex items-center gap-1.5">
+                    <i class="fa-solid fa-file-code"></i> บันทึกไฟล์เว็บไปเปิดติดตั้งบนมือถือ
+                </p>
+                <p class="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                    ดาวน์โหลดไฟล์ <strong>MedReminder-PRO.html</strong> เพื่ออัปโหลดขึ้นเว็บฟรี (เช่น <strong>Netlify Drop</strong> หรือ <strong>Tiiny.host</strong>) แล้วเปิดลิงก์จากมือถือเพื่อติดตั้งเป็นแอปได้ทันที
+                </p>
+                <button type="button" onclick="downloadSelfHTML()" class="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 dark:bg-teal-600 dark:hover:bg-teal-700 text-white font-bold rounded-xl transition shadow-sm flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-download"></i> ดาวน์โหลดไฟล์เว็บ (MedReminder-PRO.html)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- HIDDEN EXPORT CONTAINER FOR PDF PRINTOUT -->
+    <div id="pdfExportContainer" class="hidden p-6 bg-white text-slate-800 space-y-4">
+        <div class="border-b pb-3 flex justify-between items-center">
+            <div>
+                <h2 class="text-xl font-bold">รายงานประวัติการทานยา - MedReminder PRO</h2>
+                <p class="text-xs text-slate-500">ผู้ใช้งาน: <span id="pdfUser"></span> | ออกรายงาน ณ วันที่: <span id="pdfDate"></span></p>
+            </div>
+        </div>
+        <table class="w-full text-xs text-left border-collapse border border-slate-200">
+            <thead>
+                <tr class="bg-slate-100">
+                    <th class="border p-2">เวลาเตือน</th>
+                    <th class="border p-2">ชื่อยา</th>
+                    <th class="border p-2">ขนาด</th>
+                    <th class="border p-2">มื้ออาหาร</th>
+                    <th class="border p-2">วันที่ทาน</th>
+                    <th class="border p-2">ข้อควรระวัง</th>
+                    <th class="border p-2">สถานะวันนี้</th>
+                </tr>
+            </thead>
+            <tbody id="pdfTableBody"></tbody>
+        </table>
+    </div>
+
+    <!-- MAIN JAVASCRIPT APPLICATION -->
+    <script>
+        // ==========================================
+        // 1. STATE & CONSTANTS (Backward Compatible)
+        // ==========================================
+        const THAI_DAYS = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
+        const apiKey = ""; // Runtime API Key injected automatically by environment
+
+        let currentUser = localStorage.getItem('currentUser') || null;
+        let allUserData = JSON.parse(localStorage.getItem('med_v35_pro_data')) || {};
+
+        let alarmTone = localStorage.getItem('med_alarm_tone') || 'gentle';
+        let ttsEnabled = localStorage.getItem('med_tts_enabled') !== 'false';
+
+        let medications = [];
+        let logs = [];
+        let dailyHistory = {};
+        let snoozedAlarms = [];
+        let dayFilterMode = 'today'; // 'today' | 'all'
+
+        let activeAlarmMed = null;
+        let activeAlarmSlot = null;
+        let alarmInterval = null;
+        let audioCtx = null;
+        let soundVolume = 0.8;
+        let wakeLock = null;
+        let activeRefillMedId = null;
+        let confirmCallback = null;
+
+        // Drug Interaction Modal State
+        let interactionDrugList = [];
+
+        // ==========================================
+        // 2. BUILT-IN CLINICAL PHARMACOLOGICAL ENGINE
+        //    (Ensures 100% reliability even offline)
+        // ==========================================
+        const CLINICAL_DRUG_DB = [
+            {
+                keywords: ['พารา', 'paracetamol', 'acetaminophen', 'tylenol', 'sara', 'ไทลินอล', 'ซาร่า'],
+                generic: 'Paracetamol (พาราเซตามอล)',
+                category: 'paracetamol',
+                dosage: '1 เม็ด (500 มก.)',
+                meal: 'ตามอาการ',
+                warning: 'ห้ามทานเกิน 8 เม็ด (4,000 มก.) ต่อวัน และระวังการทานซ้ำซ้อนกับยาแก้หวัดสูตรผสม',
+                note: 'ทานห่างกันอย่างน้อย 4-6 ชั่วโมงเมื่อมีอาการปวดหรือมีไข้'
+            },
+            {
+                keywords: ['ไอบูโพรเฟน', 'ibuprofen', 'brufen', 'nurofen', 'โกเฟน', 'gofen'],
+                generic: 'Ibuprofen (ไอบูโพรเฟน)',
+                category: 'nsaid',
+                dosage: '1 เม็ด (400 มก.)',
+                meal: 'หลังอาหาร',
+                warning: 'ระคายเคืองกระเพาะอาหาร ห้ามทานตอนท้องว่าง ผู้ป่วยโรคไต แผลในกระเพาะ หรือไข้เลือดออกควรหลีกเลี่ยง',
+                note: 'รับประทานหลังอาหารทันทีและดื่มน้ำตามมากๆ'
+            },
+            {
+                keywords: ['แอสไพริน', 'aspirin', 'asa'],
+                generic: 'Aspirin (แอสไพริน)',
+                category: 'aspirin',
+                dosage: '1 เม็ด (81 มก.)',
+                meal: 'หลังอาหาร',
+                warning: 'เพิ่มความเสี่ยงเลือดออกในทางเดินอาหาร ห้ามหยุดยาต้านเกล็ดเลือดเองโดยไม่ปรึกษาแพทย์',
+                note: 'ทานหลังอาหารทันทีเพื่อลดการระคายเคืองกระเพาะอาหาร'
+            },
+            {
+                keywords: ['วาร์ฟาริน', 'warfarin', 'coumadin', 'ยาละลายลิ่มเลือด'],
+                generic: 'Warfarin (วาร์ฟาริน)',
+                category: 'warfarin',
+                dosage: 'ตามแพทย์สั่งอย่างเคร่งครัด',
+                meal: 'ก่อนนอน',
+                warning: 'ยาควบคุมพิเศษ! ระวังเลือดออกง่ายผิดปกติ หลีกเลี่ยงสมุนไพร แปะก๊วย น้ำมันปลา และยาแก้ปวดกลุ่ม NSAIDs',
+                note: 'ทานเวลาเดียวกันทุกวัน และควบคุมปริมาณผักใบเขียวให้สม่ำเสมอ'
+            },
+            {
+                keywords: ['อะม็อกซี', 'amoxicillin', 'amoxy', 'augmentin', 'ยาฆ่าเชื้อ', 'ยาปฏิชีวนะ'],
+                generic: 'Amoxicillin (อะม็อกซีซิลลิน)',
+                category: 'antibiotic_penicillin',
+                dosage: '1 แคปซูล (500 มก.)',
+                meal: 'หลังอาหาร',
+                warning: 'ต้องทานติดต่อกันจนหมดแผงแม้จะหายดีแล้ว เพื่อป้องกันเชื้อดื้อยา หากมีผื่นแพ้ให้หยุดยาและพบแพทย์',
+                note: 'ทานให้ตรงเวลาและครบตามจำนวนที่แพทย์หรือเภสัชกรจ่าย'
+            },
+            {
+                keywords: ['อะซิโธรมัยซิน', 'azithromycin', 'zithromax'],
+                generic: 'Azithromycin (อะซิโธรมัยซิน)',
+                category: 'macrolide',
+                dosage: '1 เม็ด (250-500 มก.)',
+                meal: 'ก่อนอาหาร',
+                warning: 'ควรทานห่างจากยาลดกรดอย่างน้อย 2 ชั่วโมง และทานติดต่อกันจนครบคอร์ส',
+                note: 'ทานก่อนอาหาร 1 ชั่วโมง หรือหลังอาหาร 2 ชั่วโมง'
+            },
+            {
+                keywords: ['ซิโปร', 'ciprofloxacin', 'norfloxacin', 'นอร์ฟลอกซาซิน', 'levofloxacin'],
+                generic: 'Fluoroquinolone Antibiotic',
+                category: 'quinolone',
+                dosage: '1 เม็ด',
+                meal: 'หลังอาหาร',
+                warning: 'ห้ามทานพร้อมนม ยาลดกรด แคลเซียม หรือธาตุเหล็ก เพราะจะทำให้ยาดูดซึมไม่ได้ผล (ต้องเว้นห่าง 2-4 ชม.)',
+                note: 'ดื่มน้ำตามมากๆ และหลีกเลี่ยงแสงแดดจัด'
+            },
+            {
+                keywords: ['โอเมพราโซล', 'omeprazole', 'miracid', 'ยาลดกรด', 'ยาเคลือบกระเพาะ', 'lansoprazole', 'pantoprazole'],
+                generic: 'Omeprazole (โอเมพราโซล)',
+                category: 'ppi',
+                dosage: '1 แคปซูล (20 มก.)',
+                meal: 'ก่อนอาหาร',
+                warning: 'ห้ามเคี้ยวหรือบดแคปซูล ต้องกลืนทั้งเม็ดก่อนอาหารเช้า 30 นาทีเพื่อให้ยาออกฤทธิ์เต็มที่',
+                note: 'ทานก่อนอาหารมื้อแรกของวัน 30-60 นาที'
+            },
+            {
+                keywords: ['antacid', 'ยาลดกรดชนิดน้ำ', 'maalox', 'algycon', 'gaviscon', 'กาวิสคอน'],
+                generic: 'Antacid (ยาลดกรด)',
+                category: 'antacid',
+                dosage: '1-2 ช้อนโต๊ะ (15-30 มล.)',
+                meal: 'หลังอาหาร',
+                warning: 'อาจรบกวนการดูดซึมยาชนิดอื่น ควรทานห่างจากยาอื่นอย่างน้อย 2 ชั่วโมง',
+                note: 'เขย่าขวดก่อนรับประทาน ทานหลังอาหาร 1 ชั่วโมงหรือเมื่อมีอาการแสบท้อง'
+            },
+            {
+                keywords: ['เมทฟอร์มิน', 'metformin', 'glucophage', 'ยาเบาหวาน'],
+                generic: 'Metformin (เมทฟอร์มิน)',
+                category: 'metformin',
+                dosage: '1 เม็ด (500 มก.)',
+                meal: 'พร้อมอาหาร',
+                warning: 'อาจทำให้คลื่นไส้หรือท้องเสียช่วงแรก ควรทานพร้อมหรือหลังอาหารทันที และงดดื่มแอลกอฮอล์',
+                note: 'สังเกตอาการหน้ามืด ใจสั่น เหงื่อออก (ภาวะน้ำตาลต่ำ)'
+            },
+            {
+                keywords: ['แอมโลดิพีน', 'amlodipine', 'norvasc', 'ยาลดความดัน'],
+                generic: 'Amlodipine (แอมโลดิพีน)',
+                category: 'ccb',
+                dosage: '1 เม็ด (5 มก.)',
+                meal: 'หลังอาหาร',
+                warning: 'อาจมีอาการบวมที่ข้อเท้าหรือหน้าแดงช่วงเริ่มยา ควรลุกนั่งช้าๆ เพื่อป้องกันหน้ามืด',
+                note: 'ทานเวลาเดียวกันทุกวันอย่างสม่ำเสมอ'
+            },
+            {
+                keywords: ['ซิมวาสแตติน', 'simvastatin', 'อะทอร์วาสแตติน', 'atorvastatin', 'ยาลดไขมัน', 'rosuvastatin'],
+                generic: 'Statin (ยาลดไขมันในเลือด)',
+                category: 'statin',
+                dosage: '1 เม็ด (10-20 มก.)',
+                meal: 'ก่อนนอน',
+                warning: 'หากมีอาการปวดเมื่อยกล้ามเนื้อรุนแรงผิดปกติหรือปัสสาวะสีเข้ม ให้รีบปรึกษาแพทย์',
+                note: 'Simvastatin ควรทานช่วงเย็นหรือก่อนนอนเพื่อให้ยาออกฤทธิ์ลดไขมันได้ดีที่สุด'
+            },
+            {
+                keywords: ['คลอเฟนิรามีน', 'chlorpheniramine', 'cpm', 'ยาแก้แพ้'],
+                generic: 'Chlorpheniramine (คลอเฟนิรามีน)',
+                category: 'sedating_antihistamine',
+                dosage: '1 เม็ด (4 มก.)',
+                meal: 'หลังอาหาร',
+                warning: 'ยานี้ทำให้ง่วงซึม ควรหลีกเลี่ยงการขับขี่ยานพาหนะหรือทำงานกับเครื่องจักร',
+                note: 'อาจทำให้ปากแห้ง คอแห้ง ควรจิบน้ำบ่อยๆ'
+            },
+            {
+                keywords: ['เซทิริซีน', 'cetirizine', 'zyrtec', 'ลอราทาดีน', 'loratadine'],
+                generic: 'Cetirizine / Loratadine',
+                category: 'antihistamine',
+                dosage: '1 เม็ด (10 มก.)',
+                meal: 'หลังอาหาร',
+                warning: 'ง่วงน้อยกว่ายาแก้แพ้รุ่นเก่า แต่บางรายอาจยังรู้สึกง่วงซึมได้เล็กน้อย',
+                note: 'ทานวันละ 1 ครั้งเมื่อมีอาการแพ้ คัน หรือน้ำมูกไหล'
+            },
+            {
+                keywords: ['แคลเซียม', 'calcium'],
+                generic: 'Calcium Supplement (แคลเซียม)',
+                category: 'calcium',
+                dosage: '1 เม็ด',
+                meal: 'พร้อมอาหาร',
+                warning: 'ลดการดูดซึมยาฆ่าเชื้อบางชนิด ยาไทรอยด์ และธาตุเหล็ก ควรทานห่างกัน 2-4 ชั่วโมง',
+                note: 'ดื่มน้ำตามมากๆ เพื่อลดโอกาสท้องผูก'
+            },
+            {
+                keywords: ['ธาตุเหล็ก', 'iron', 'ferrous', 'ยาบำรุงเลือด'],
+                generic: 'Ferrous / Iron (ธาตุเหล็ก)',
+                category: 'iron',
+                dosage: '1 เม็ด',
+                meal: 'หลังอาหาร',
+                warning: 'อาจทำให้อุจจาระมีสีดำคล้ำ (เป็นปกติ) ห้ามทานพร้อมนม ชา กาแฟ แคลเซียม หรือยาลดกรด',
+                note: 'การทานร่วมกับวิตามินซีจะช่วยให้ดูดซึมธาตุเหล็กได้ดีขึ้น'
+            },
+            {
+                keywords: ['น้ำมันปลา', 'fish oil', 'omega 3', 'โอเมก้า'],
+                generic: 'Fish Oil / Omega-3 (น้ำมันปลา)',
+                category: 'fish_oil',
+                dosage: '1 แคปซูล (1,000 มก.)',
+                meal: 'พร้อมอาหาร',
+                warning: 'มีฤทธิ์ต้านการเกล็ดเลือดอ่อนๆ ควรระวังหากใช้ร่วมกับยาละลายลิ่มเลือด (Warfarin/Aspirin)',
+                note: 'ทานพร้อมอาหารที่มีไขมันเล็กน้อยเพื่อการดูดซึมที่ดีและลดอาการเรอมีกลิ่นคาว'
+            },
+            {
+                keywords: ['วิตามินซี', 'vitamin c', 'vit c'],
+                generic: 'Vitamin C (วิตามินซี)',
+                category: 'vitamin_c',
+                dosage: '1 เม็ด (500-1,000 มก.)',
+                meal: 'หลังอาหาร',
+                warning: 'ขนาดสูงอาจระคายเคืองกระเพาะอาหารหรือเพิ่มความเสี่ยงนิ่วในไตในผู้มีประวัติเป็นนิ่ว',
+                note: 'ทานหลังอาหารและดื่มน้ำสะอาดตามมากๆ'
+            },
+            {
+                keywords: ['ฟ้าทะลายโจร', 'andrographis'],
+                generic: 'ฟ้าทะลายโจร',
+                category: 'herbal',
+                dosage: 'ตามฉลากผลิตภัณฑ์',
+                meal: 'หลังอาหาร',
+                warning: 'ไม่ควรทานติดต่อกันนานเกิน 5-7 วัน ควรระวังในผู้ที่ทานยาลดความดันหรือยาละลายลิ่มเลือด',
+                note: 'หยุดยาและพบแพทย์หากอาการไม่ดีขึ้นภายใน 3 วัน'
+            }
+        ];
+
+        const INTERACTION_MATRIX = [
+            {
+                catA: ['warfarin'],
+                catB: ['nsaid', 'aspirin'],
+                severity: 'สูง',
+                detail: 'การใช้ Warfarin ร่วมกับกลุ่มยาแก้ปวด NSAIDs หรือ Aspirin เพิ่มความเสี่ยงต่อภาวะเลือดออกรุนแรงในทางเดินอาหารและอวัยวะภายในอย่างมาก',
+                advice: 'หลีกเลี่ยงการใช้ร่วมกันเด็ดขาด เว้นแต่แพทย์สั่งติดตามค่าการแข็งตัวของเลือด (INR) อย่างใกล้ชิด'
+            },
+            {
+                catA: ['warfarin', 'aspirin'],
+                catB: ['fish_oil', 'herbal'],
+                severity: 'ปานกลาง',
+                detail: 'น้ำมันปลา (Fish Oil) หรือสมุนไพรบางชนิดมีฤทธิ์เสริมการต้านเกล็ดเลือด อาจทำให้เลือดหยุดยากหรือเกิดรอยฟกช้ำง่ายขึ้น',
+                advice: 'ควรแจ้งแพทย์ผู้สั่งจ่ายยาก่อนรับประทานอาหารเสริมร่วมกับยาละลายลิ่มเลือด'
+            },
+            {
+                catA: ['nsaid'],
+                catB: ['aspirin'],
+                severity: 'สูง',
+                detail: 'การทาน Ibuprofen/NSAIDs ร่วมกับ Aspirin เพิ่มความเสี่ยงแผลในกระเพาะอาหาร และ Ibuprofen อาจขัดขวางฤทธิ์ป้องกันหัวใจของ Aspirin ขนาดต่ำได้',
+                advice: 'ควรปรึกษาแพทย์เพื่อเปลี่ยนไปใช้ยาแก้ปวดกลุ่มอื่น เช่น พาราเซตามอล แทน'
+            },
+            {
+                catA: ['quinolone', 'macrolide'],
+                catB: ['antacid', 'calcium', 'iron'],
+                severity: 'ปานกลาง',
+                detail: 'แคลเซียม ธาตุเหล็ก และยาลดกรดจะจับตัวกับยาปฏิชีวนะในทางเดินอาหาร ทำให้ร่างกายดูดซึมยาฆ่าเชื้อได้ลดลงมากและการรักษาอาจไม่ได้ผล',
+                advice: 'ควรเว้นระยะเวลาการทานห่างกันอย่างน้อย 2 ถึง 4 ชั่วโมง'
+            },
+            {
+                catA: ['calcium'],
+                catB: ['iron'],
+                severity: 'ปานกลาง',
+                detail: 'แคลเซียมและธาตุเหล็กจะแย่งกันดูดซึมในลำไส้ ทำให้ได้รับแร่ธาตุทั้งสองชนิดไม่เต็มที่',
+                advice: 'ควรแยกมื้อทานห่างกันอย่างน้อย 2 ชั่วโมง (เช่น ทานธาตุเหล็กมื้อเช้า และแคลเซียมมื้อเย็น)'
+            },
+            {
+                catA: ['ccb'],
+                catB: ['statin'],
+                severity: 'ปานกลาง',
+                detail: 'Amlodipine อาจเพิ่มระดับยา Simvastatin ในกระแสเลือด ทำให้เสี่ยงต่ออาการปวดเมื่อยกล้ามเนื้อมากขึ้น',
+                advice: 'หากใช้ Simvastatin ร่วมกับ Amlodipine ขนาดยา Simvastatin ไม่ควรเกิน 20 มก./วัน'
+            },
+            {
+                catA: ['ccb'],
+                catB: ['nsaid'],
+                severity: 'ปานกลาง',
+                detail: 'ยาแก้ปวดกลุ่ม NSAIDs อาจทำให้ร่างกายกักเก็บน้ำและเกลือแร่ ส่งผลให้ประสิทธิภาพของยาลดความดันลดลง',
+                advice: 'หลีกเลี่ยงการใช้ยาแก้ปวดกลุ่ม NSAIDs ต่อเนื่องเป็นเวลานาน และหมั่นวัดความดันโลหิตสม่ำเสมอ'
+            },
+            {
+                catA: ['iron'],
+                catB: ['vitamin_c'],
+                severity: 'ต่ำ',
+                detail: 'วิตามินซีช่วยเพิ่มการดูดซึมของธาตุเหล็กในทางเดินอาหารได้ดีขึ้น (ปฏิกิริยาเชิงบวก)',
+                advice: 'สามารถทานร่วมกันได้ หากมีอาการระคายเคืองกระเพาะให้ทานหลังอาหารทันที'
+            }
+        ];
+
+        function classifyDrugLocally(drugName) {
+            const lower = drugName.toLowerCase().trim();
+            for (const item of CLINICAL_DRUG_DB) {
+                if (item.keywords.some(kw => lower.includes(kw.toLowerCase()))) {
+                    return item;
+                }
+            }
+            // Suffix heuristics
+            if (lower.endsWith('prazole')) {
+                return { generic: drugName, category: 'ppi', dosage: '1 แคปซูล', meal: 'ก่อนอาหาร', warning: 'ควรทานก่อนอาหาร 30 นาที และกลืนทั้งเม็ดห้ามบดเคี้ยว', note: 'ทานก่อนอาหารมื้อแรกของวัน' };
+            }
+            if (lower.endsWith('statin')) {
+                return { generic: drugName, category: 'statin', dosage: '1 เม็ด', meal: 'ก่อนนอน', warning: 'หากมีอาการปวดกล้ามเนื้อผิดปกติควรปรึกษาแพทย์', note: 'ทานสม่ำเสมอวันละ 1 ครั้ง' };
+            }
+            if (lower.endsWith('dipine') || lower.endsWith('sartan') || lower.endsWith('pril') || lower.endsWith('olol')) {
+                return { generic: drugName, category: 'ccb', dosage: '1 เม็ด', meal: 'หลังอาหาร', warning: 'ห้ามหยุดยาลดความดันเอง ควรลุกนั่งช้าๆ เพื่อป้องกันหน้ามืด', note: 'ทานเวลาเดียวกันทุกวัน' };
+            }
+            if (lower.endsWith('profen') || lower.endsWith('fenac') || lower.endsWith('coxib') || lower.endsWith('xicam')) {
+                return { generic: drugName, category: 'nsaid', dosage: '1 เม็ด', meal: 'หลังอาหาร', warning: 'ระคายเคืองกระเพาะอาหาร ควรทานหลังอาหารทันทีและดื่มน้ำมากๆ', note: 'หลีกเลี่ยงในผู้ป่วยโรคไตหรือแผลในกระเพาะ' };
+            }
+            if (lower.endsWith('cillin') || lower.endsWith('mycin') || lower.endsWith('floxacin') || lower.endsWith('cef')) {
+                return { generic: drugName, category: 'antibiotic_penicillin', dosage: '1 เม็ด/แคปซูล', meal: 'หลังอาหาร', warning: 'ยาปฏิชีวนะ ควรทานติดต่อกันจนหมดตามแพทย์สั่งเพื่อป้องกันเชื้อดื้อยา', note: 'ทานให้ครบตามกำหนด' };
+            }
+            return {
+                generic: drugName,
+                category: 'general',
+                dosage: '1 เม็ด',
+                meal: 'หลังอาหาร',
+                warning: 'โปรดตรวจสอบขนาดและวิธีใช้ให้ตรงตามฉลากยาหรือคำแนะนำของแพทย์',
+                note: 'ดื่มน้ำสะอาดตามมากๆ และทานให้ตรงเวลา'
+            };
+        }
+
+        function runLocalPharmacistAnalysis(drugObjects) {
+            const classified = drugObjects.map(d => ({
+                ...d,
+                info: classifyDrugLocally(d.name)
+            }));
+
+            const interactions = [];
+            const seenPairs = new Set();
+
+            // 1. Check duplicate categories (e.g. duplicate Paracetamol or duplicate NSAIDs)
+            const paracetamols = classified.filter(c => c.info.category === 'paracetamol');
+            if (paracetamols.length > 1) {
+                interactions.push({
+                    drugs: paracetamols.map(p => p.name).join(' + '),
+                    severity: 'สูง',
+                    detail: 'พบรายการยาที่มีตัวยา Paracetamol ซ้ำซ้อนกัน อาจทำให้ได้รับยาเกินขนาดที่ปลอดภัยต่อวันและเกิดพิษต่อตับ',
+                    advice: 'ตรวจสอบฉลากยาและหลีกเลี่ยงการทานซ้ำซ้อนกันในมื้อเดียวกัน'
+                });
+            }
+
+            const nsaids = classified.filter(c => c.info.category === 'nsaid');
+            if (nsaids.length > 1) {
+                interactions.push({
+                    drugs: nsaids.map(p => p.name).join(' + '),
+                    severity: 'สูง',
+                    detail: 'พบการใช้ยาแก้ปวดลดการอักเสบกลุ่ม NSAIDs มากกว่า 1 ชนิดร่วมกัน เพิ่มความเสี่ยงแผลในกระเพาะอาหารและภาวะไตเสื่อมเฉียบพลัน',
+                    advice: 'ไม่ควรใช้ยาแก้ปวดกลุ่ม NSAIDs หลายชนิดพร้อมกัน ควรปรึกษาแพทย์หรือเภสัชกร'
+                });
+            }
+
+            // 2. Pairwise interaction matrix check
+            for (let i = 0; i < classified.length; i++) {
+                for (let j = i + 1; j < classified.length; j++) {
+                    const a = classified[i];
+                    const b = classified[j];
+                    const catA = a.info.category;
+                    const catB = b.info.category;
+                    if (catA === 'general' || catB === 'general') continue;
+
+                    for (const rule of INTERACTION_MATRIX) {
+                        const matchForward = rule.catA.includes(catA) && rule.catB.includes(catB);
+                        const matchReverse = rule.catA.includes(catB) && rule.catB.includes(catA);
+                        if (matchForward || matchReverse) {
+                            const pairKey = [a.name, b.name, rule.detail].sort().join('|');
+                            if (!seenPairs.has(pairKey)) {
+                                seenPairs.add(pairKey);
+                                interactions.push({
+                                    drugs: `${a.name} + ${b.name}`,
+                                    severity: rule.severity,
+                                    detail: rule.detail,
+                                    advice: rule.advice
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 3. Generate tailored timing & meal tips
+            const timingTips = [];
+            const beforeMealDrugs = classified.filter(c => c.meal === 'ก่อนอาหาร' || c.info.meal === 'ก่อนอาหาร');
+            if (beforeMealDrugs.length > 0) {
+                timingTips.push(`ยาที่ควรทานก่อนอาหาร (${beforeMealDrugs.map(d => d.name).join(', ')}): ควรทานขณะท้องว่างก่อนมื้ออาหาร 30-60 นาที`);
+            }
+
+            const nsaidOrAspirin = classified.filter(c => ['nsaid', 'aspirin'].includes(c.info.category));
+            if (nsaidOrAspirin.length > 0) {
+                timingTips.push(`กลุ่มยาที่ระคายเคืองกระเพาะ (${nsaidOrAspirin.map(d => d.name).join(', ')}): ควรทานหลังอาหารทันทีและดื่มน้ำตาม 1 แก้วเต็ม`);
+            }
+
+            const antibiotics = classified.filter(c => ['antibiotic_penicillin', 'macrolide', 'quinolone'].includes(c.info.category));
+            if (antibiotics.length > 0) {
+                timingTips.push(`ยาฆ่าเชื้อ/ปฏิชีวนะ (${antibiotics.map(d => d.name).join(', ')}): ต้องทานติดต่อกันให้ครบตามจำนวนแม้ไม่มีอาการแล้ว`);
+            }
+
+            if (timingTips.length === 0) {
+                timingTips.push('จัดมื้อยาตามเวลาที่ตั้งไว้ให้สม่ำเสมอทุกวัน และดื่มน้ำสะอาดตามมากๆ');
+            }
+
+            // Determine overall risk level
+            let overallRisk = 'safe';
+            let headline = `ตรวจสอบยา ${classified.length} รายการเรียบร้อย ไม่พบปฏิกิริยาระหว่างยาที่รุนแรง`;
+            if (interactions.some(x => x.severity === 'สูง')) {
+                overallRisk = 'warning';
+                headline = `พบข้อควรระวังระดับสูง ${interactions.filter(x => x.severity === 'สูง').length} รายการ ควรปรึกษาแพทย์หรือเภสัชกร`;
+            } else if (interactions.some(x => x.severity === 'ปานกลาง')) {
+                overallRisk = 'caution';
+                headline = `พบปฏิกิริยาระดับปานกลาง ${interactions.length} รายการ แนะนำให้เว้นระยะเวลาทานยา`;
+            }
+
+            return {
+                source: 'clinical_engine',
+                overallRisk,
+                headline,
+                interactions,
+                timingTips
+            };
+        }
+
+        // ==========================================
+        // 3. INITIALIZATION & CLOCK ENGINE
+        // ==========================================
+        window.addEventListener('DOMContentLoaded', () => {
+            initTheme();
+            initPWA();
+            updateDateLabels();
+            checkUserSession();
+            initDaySelectorUI();
+            addTimeSlot('08:00');
+            syncPresetTimeButtons();
+
+            if ("Notification" in window && Notification.permission !== "granted") {
+                document.getElementById('permBanner').classList.remove('hidden');
+            }
+
+            const unlockAudio = () => {
+                initAudioContext();
+                if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+                updateAudioStatusUI();
+                window.removeEventListener('click', unlockAudio);
+                window.removeEventListener('touchstart', unlockAudio);
+            };
+            window.addEventListener('click', unlockAudio);
+            window.addEventListener('touchstart', unlockAudio);
+
+            tickClock();
+            setInterval(tickClock, 1000);
+        });
+
+        function getTodayDateKey(offsetDays = 0) {
+            const d = new Date();
+            d.setDate(d.getDate() + offsetDays);
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        }
+
+        function getTodayThaiDay() {
+            return THAI_DAYS[new Date().getDay()];
+        }
+
+        function updateDateLabels() {
+            const now = new Date();
+            const todayShort = getTodayThaiDay();
+            document.getElementById('todayShortName').innerText = todayShort;
+            document.getElementById('todayBadgePill').innerText = `วัน${todayShort}`;
+            const dateDisplay = now.toLocaleDateString('th-TH', {
+                weekday: 'long', day: 'numeric', month: 'short', year: 'numeric'
+            });
+            const subEl = document.getElementById('todayDateSubtitle');
+            if (subEl) subEl.innerText = dateDisplay;
+        }
+
+        // ==========================================
+        // 4. CUSTOM TOAST & CONFIRMATION MODALS
+        // ==========================================
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            const styles = {
+                success: 'bg-emerald-600 text-white border-emerald-500',
+                error: 'bg-rose-600 text-white border-rose-500',
+                warning: 'bg-amber-600 text-white border-amber-500',
+                info: 'bg-slate-900 dark:bg-slate-800 text-white border-slate-700'
+            };
+            const icons = {
+                success: 'fa-circle-check',
+                error: 'fa-circle-exclamation',
+                warning: 'fa-triangle-exclamation',
+                info: 'fa-circle-info'
+            };
+            toast.className = `pointer-events-auto px-4 py-3 rounded-2xl shadow-xl border text-xs font-medium flex items-center gap-2.5 animate-toast ${styles[type] || styles.info}`;
+            toast.innerHTML = `<i class="fa-solid ${icons[type] || icons.info} text-sm shrink-0"></i><span class="flex-1 leading-relaxed">${message}</span>`;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(8px)';
+                toast.style.transition = 'all 0.25s ease';
+                setTimeout(() => toast.remove(), 260);
+            }, 3500);
+        }
+
+        function openConfirmModal(title, message, onConfirm) {
+            document.getElementById('confirmTitle').innerText = title;
+            document.getElementById('confirmMessage').innerText = message;
+            confirmCallback = onConfirm;
+            const okBtn = document.getElementById('confirmOkBtn');
+            okBtn.onclick = () => {
+                const cb = confirmCallback;
+                closeConfirmModal();
+                if (cb) cb();
+            };
+            document.getElementById('confirmModal').classList.remove('hidden');
+        }
+
+        function closeConfirmModal() {
+            confirmCallback = null;
+            document.getElementById('confirmModal').classList.add('hidden');
+        }
+
+        // ==========================================
+        // 5. USER SESSION & DATA PERSISTENCE
+        // ==========================================
+        function checkUserSession() {
+            if (currentUser) {
+                document.getElementById('loginOverlay').classList.add('hidden');
+                document.getElementById('displayUsername').innerText = currentUser;
+                loadUserData();
+            } else {
+                document.getElementById('loginOverlay').classList.remove('hidden');
+            }
+        }
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const username = document.getElementById('loginUsername').value.trim();
+            if (username) {
+                currentUser = username;
+                localStorage.setItem('currentUser', currentUser);
+                document.getElementById('displayUsername').innerText = currentUser;
+                document.getElementById('loginOverlay').classList.add('hidden');
+                loadUserData();
+                initAudioContext();
+                showToast(`ยินดีต้อนรับคุณ ${currentUser}`, 'success');
+            }
+        }
+
+        function logout() {
+            stopAlarmSound();
+            stopSpeech();
+            currentUser = null;
+            localStorage.removeItem('currentUser');
+            document.getElementById('loginOverlay').classList.remove('hidden');
+        }
+
+        function normalizeMedication(med) {
+            let times = Array.isArray(med.times) && med.times.length > 0
+                ? [...new Set(med.times.filter(Boolean))].sort()
+                : [med.time || '08:00'];
+            med.times = times;
+            med.time = times[0];
+
+            if (!Array.isArray(med.takenSlots)) {
+                med.takenSlots = med.taken === true ? [...times] : [];
+            } else {
+                med.takenSlots = med.takenSlots.filter(t => times.includes(t));
+            }
+            med.taken = times.length > 0 && med.takenSlots.length >= times.length;
+            return med;
+        }
+
+        function loadUserData() {
+            if (!allUserData[currentUser]) {
+                allUserData[currentUser] = { medications: [], logs: [], dailyHistory: {} };
+            }
+            medications = (allUserData[currentUser].medications || []).map(normalizeMedication);
+            logs = allUserData[currentUser].logs || [];
+            dailyHistory = allUserData[currentUser].dailyHistory || {};
+
+            try {
+                const savedSnoozes = JSON.parse(localStorage.getItem('med_snoozes_' + currentUser)) || [];
+                snoozedAlarms = savedSnoozes.filter(s => s && typeof s.triggerAt === 'number');
+            } catch (e) {
+                snoozedAlarms = [];
+            }
+
+            const todayKey = getTodayDateKey();
+            const legacyTodayStr = new Date().toLocaleDateString('th-TH');
+            const lastActiveDate = localStorage.getItem('med_last_active_date_' + currentUser);
+
+            if (lastActiveDate && lastActiveDate !== todayKey && lastActiveDate !== legacyTodayStr) {
+                const prevPercent = calculateTodayAdherencePercent();
+                if (/^\d{4}-\d{2}-\d{2}$/.test(lastActiveDate)) {
+                    dailyHistory[lastActiveDate] = prevPercent;
+                }
+                medications.forEach(med => {
+                    med.takenSlots = [];
+                    med.taken = false;
+                });
+                snoozedAlarms = [];
+                saveSnoozes();
+            }
+
+            localStorage.setItem('med_last_active_date_' + currentUser, todayKey);
+            recordTodayAdherence();
+            saveUserData();
+
+            renderMedications();
+            renderLogs();
+            updateDashboard();
+            updateNextDoseBanner();
+        }
+
+        function saveUserData() {
+            if (!currentUser) return;
+            allUserData[currentUser] = { medications, logs, dailyHistory };
+            localStorage.setItem('med_v35_pro_data', JSON.stringify(allUserData));
+        }
+
+        function saveSnoozes() {
+            if (!currentUser) return;
+            localStorage.setItem('med_snoozes_' + currentUser, JSON.stringify(snoozedAlarms));
+        }
+
+        function isMedScheduledToday(med) {
+            if (!med.days || med.days.length === 0) return true;
+            return med.days.includes(getTodayThaiDay());
+        }
+
+        // ==========================================
+        // 6. CLOCK, ALARM SCHEDULER & SNOOZE ENGINE
+        // ==========================================
+        function tickClock() {
+            const now = new Date();
+            const timeStr = now.toTimeString().split(' ')[0];
+            const clockEl = document.getElementById('clockDisplay');
+            if (clockEl) clockEl.innerText = timeStr;
+
+            if (!currentUser) return;
+
+            const currentHM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+            if (now.getSeconds() === 0) {
+                checkAlarms(currentHM);
+            }
+
+            if (snoozedAlarms.length > 0 && activeAlarmMed === null) {
+                const nowMs = Date.now();
+                const dueIndex = snoozedAlarms.findIndex(s => nowMs >= s.triggerAt);
+                if (dueIndex !== -1) {
+                    const dueSnooze = snoozedAlarms.splice(dueIndex, 1)[0];
+                    saveSnoozes();
+                    const med = medications.find(m => m.id === dueSnooze.medId);
+                    if (med && !med.takenSlots.includes(dueSnooze.slotTime)) {
+                        renderMedications();
+                        triggerAlarmModal(med, dueSnooze.slotTime, true);
+                    }
+                }
+            }
+
+            updateNextDoseBanner();
+        }
+
+        function checkAlarms(currentHM) {
+            if (!currentUser || activeAlarmMed !== null) return;
+            for (const med of medications) {
+                if (!isMedScheduledToday(med)) continue;
+                const timesArr = med.times || [med.time];
+                if (timesArr.includes(currentHM) && !med.takenSlots.includes(currentHM)) {
+                    triggerAlarmModal(med, currentHM, false);
+                    break;
+                }
+            }
+        }
+
+        function triggerAlarmModal(med, matchedTime, isSnoozed = false) {
+            activeAlarmMed = med.id;
+            activeAlarmSlot = matchedTime;
+
+            document.getElementById('alarmTitle').innerText = med.name;
+            document.getElementById('alarmDosage').innerText = `รอบเวลา ${matchedTime} • ขนาด: ${med.dosage} (${med.meal || 'หลังอาหาร'})`;
+            document.getElementById('alarmNote').innerText = med.note ? `คำแนะนำ: ${med.note}` : '';
+            document.getElementById('alarmConfirmSlotText').innerText = matchedTime;
+
+            const snoozeTag = document.getElementById('alarmSnoozedIndicator');
+            if (isSnoozed) snoozeTag.classList.remove('hidden');
+            else snoozeTag.classList.add('hidden');
+
+            const warnBox = document.getElementById('alarmWarningBox');
+            if (med.warning) {
+                document.getElementById('alarmWarningText').innerText = `ข้อควรระวัง: ${med.warning}`;
+                warnBox.classList.remove('hidden');
+            } else {
+                warnBox.classList.add('hidden');
+            }
+
+            document.getElementById('alarmModal').classList.remove('hidden');
+            startContinuousAlarm();
+
+            if (ttsEnabled) {
+                speakMedicationThai(med, matchedTime);
+            }
+
+            if ("Notification" in window && Notification.permission === "granted") {
+                try {
+                    new Notification("🔔 ได้เวลาทานยาแล้ว!", {
+                        body: `${med.name} (${matchedTime}) - ${med.dosage} (${med.meal || ''})`,
+                        requireInteraction: true
+                    });
+                } catch (e) {}
+            }
+        }
+
+        function confirmTakeAlarm() {
+            if (activeAlarmMed && activeAlarmSlot) {
+                toggleTimeSlotTaken(activeAlarmMed, activeAlarmSlot, true);
+            }
+            closeAlarmModal();
+        }
+
+        function snoozeAlarm(minutes = 5) {
+            if (activeAlarmMed && activeAlarmSlot) {
+                snoozedAlarms = snoozedAlarms.filter(
+                    s => !(s.medId === activeAlarmMed && s.slotTime === activeAlarmSlot)
+                );
+                const triggerAt = Date.now() + minutes * 60000;
+                snoozedAlarms.push({
+                    medId: activeAlarmMed,
+                    slotTime: activeAlarmSlot,
+                    triggerAt,
+                    snoozeMinutes: minutes
+                });
+                saveSnoozes();
+
+                const nextTime = new Date(triggerAt);
+                const nextHM = `${String(nextTime.getHours()).padStart(2, '0')}:${String(nextTime.getMinutes()).padStart(2, '0')}`;
+                showToast(`เลื่อนการแจ้งเตือนออกไป ${minutes} นาที (เตือนอีกครั้งเวลา ${nextHM})`, 'warning');
+            }
+            closeAlarmModal();
+            renderMedications();
+        }
+
+        function cancelSnooze(medId, slotTime = null) {
+            snoozedAlarms = snoozedAlarms.filter(s => {
+                if (s.medId !== medId) return true;
+                if (slotTime && s.slotTime !== slotTime) return true;
+                return false;
+            });
+            saveSnoozes();
+            renderMedications();
+            showToast('ยกเลิกการเลื่อนเตือนแล้ว', 'info');
+        }
+
+        function closeAlarmModal() {
+            stopAlarmSound();
+            stopSpeech();
+            activeAlarmMed = null;
+            activeAlarmSlot = null;
+            document.getElementById('alarmModal').classList.add('hidden');
+        }
+
+        // ==========================================
+        // 7. WEB AUDIO SYNTHESIZER, THAI TTS & WAKE LOCK
+        // ==========================================
+        function initAudioContext() {
+            if (!audioCtx) {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                if (AudioContextClass) audioCtx = new AudioContextClass();
+            }
+        }
+
+        function updateAudioStatusUI() {
+            const dot = document.getElementById('audioStatusDot');
+            const stateText = document.getElementById('audioStateText');
+            if (audioCtx) {
+                if (stateText) stateText.innerText = audioCtx.state;
+                dot.className = audioCtx.state === 'running'
+                    ? 'absolute top-1 right-1 w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-white dark:ring-slate-800'
+                    : 'absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-400 ring-2 ring-white dark:ring-slate-800';
+            }
+        }
+
+        function playAlarmBeep() {
+            initAudioContext();
+            if (!audioCtx) return;
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            try {
+                const now = audioCtx.currentTime;
+                const tone = alarmTone || 'gentle';
+
+                if (tone === 'gentle') {
+                    const notes = [523.25, 659.25, 783.99];
+                    notes.forEach((freq, idx) => {
+                        const osc = audioCtx.createOscillator();
+                        const gain = audioCtx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(freq, now + idx * 0.14);
+                        gain.gain.setValueAtTime(0.001, now + idx * 0.14);
+                        gain.gain.linearRampToValueAtTime(soundVolume * 0.75, now + idx * 0.14 + 0.03);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.14 + 0.55);
+                        osc.connect(gain);
+                        gain.connect(audioCtx.destination);
+                        osc.start(now + idx * 0.14);
+                        osc.stop(now + idx * 0.14 + 0.55);
+                    });
+                } else if (tone === 'urgent') {
+                    const pulses = [987.77, 1318.51, 987.77, 1318.51];
+                    pulses.forEach((freq, idx) => {
+                        const osc = audioCtx.createOscillator();
+                        const gain = audioCtx.createGain();
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(freq, now + idx * 0.11);
+                        gain.gain.setValueAtTime(soundVolume, now + idx * 0.11);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.11 + 0.1);
+                        osc.connect(gain);
+                        gain.connect(audioCtx.destination);
+                        osc.start(now + idx * 0.11);
+                        osc.stop(now + idx * 0.11 + 0.1);
+                    });
+                } else {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(880, now);
+                    osc.frequency.setValueAtTime(659, now + 0.16);
+                    gain.gain.setValueAtTime(soundVolume, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.42);
+                }
+            } catch (e) {}
+        }
+
+        function speakMedicationThai(med, timeStr) {
+            if (!('speechSynthesis' in window)) return;
+            try {
+                window.speechSynthesis.cancel();
+                const mealText = med.meal ? med.meal : '';
+                const warnText = med.warning ? ` ข้อควรระวัง ${med.warning}` : '';
+                const script = `ถึงเวลาทานยาแล้วค่ะ รอบเวลา ${timeStr} ยา${med.name} ขนาด ${med.dosage} ${mealText}${warnText}`;
+                const utterance = new SpeechSynthesisUtterance(script);
+                utterance.lang = 'th-TH';
+                utterance.rate = 0.95;
+                utterance.volume = Math.min(1, Math.max(0.2, soundVolume));
+                window.speechSynthesis.speak(utterance);
+            } catch (e) {}
+        }
+
+        function stopSpeech() {
+            if ('speechSynthesis' in window) {
+                try { window.speechSynthesis.cancel(); } catch (e) {}
+            }
+        }
+
+        function startContinuousAlarm() {
+            if (alarmInterval) clearInterval(alarmInterval);
+            playAlarmBeep();
+            alarmInterval = setInterval(() => {
+                playAlarmBeep();
+                if ("vibrate" in navigator) navigator.vibrate([200, 100, 200]);
+            }, 1350);
+        }
+
+        function stopAlarmSound() {
+            if (alarmInterval) {
+                clearInterval(alarmInterval);
+                alarmInterval = null;
+            }
+        }
+
+        function updateVolume(val) {
+            soundVolume = val / 100;
+            document.getElementById('volumeVal').innerText = `${val}%`;
+        }
+
+        function testSoundAlert() {
+            alarmTone = document.getElementById('alarmToneSelect').value;
+            const isTtsOn = document.getElementById('ttsToggleInput').checked;
+            playAlarmBeep();
+            if ("vibrate" in navigator) navigator.vibrate([200, 100, 200]);
+            if (isTtsOn) {
+                speakMedicationThai(
+                    { name: 'พาราเซตามอล', dosage: '1 เม็ด', meal: 'หลังอาหาร' },
+                    '08:00'
+                );
+            }
+        }
+
+        async function toggleWakeLockManual() {
+            const btn = document.getElementById('wakeLockToggleBtn');
+            const statusText = document.getElementById('wakeLockText');
+            if (!('wakeLock' in navigator)) {
+                showToast('เบราว์เซอร์นี้ไม่รองรับโหมดเปิดหน้าจอค้างไว้', 'warning');
+                return;
+            }
+            if (wakeLock !== null) {
+                try {
+                    await wakeLock.release();
+                    wakeLock = null;
+                    statusText.innerText = 'Off';
+                    statusText.className = 'font-mono font-bold text-slate-400';
+                    btn.innerText = 'เปิดใช้งาน';
+                    btn.className = 'px-3 py-1.5 rounded-xl bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-[11px] transition';
+                    showToast('ปิดโหมดค้างหน้าจอแล้ว', 'info');
+                } catch (e) {}
+            } else {
+                try {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    statusText.innerText = 'Active';
+                    statusText.className = 'font-mono font-bold text-emerald-500';
+                    btn.innerText = 'กำลังทำงาน';
+                    btn.className = 'px-3 py-1.5 rounded-xl bg-emerald-600 text-white font-bold text-[11px] transition';
+                    showToast('เปิดโหมดเปิดหน้าจอค้างไว้เรียบร้อยแล้ว', 'success');
+                } catch (err) {
+                    statusText.innerText = 'Denied';
+                    showToast('ไม่สามารถเปิด Wake Lock ได้', 'warning');
+                }
+            }
+        }
+
+        function enableFullNotifications() {
+            initAudioContext();
+            if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+
+            if ("Notification" in window) {
+                Notification.requestPermission().then(permission => {
+                    if (permission === "granted") {
+                        document.getElementById('permBanner').classList.add('hidden');
+                        showToast("เปิดระบบการแจ้งเตือนเรียบร้อยแล้ว!", 'success');
+                    }
+                });
+            }
+            updateAudioStatusUI();
+        }
+
+        // ==========================================
+        // 8. HERO NEXT-DOSE COUNTDOWN BANNER
+        // ==========================================
+        function updateNextDoseBanner() {
+            const banner = document.getElementById('nextDoseBanner');
+            if (!banner) return;
+
+            const todaysMeds = medications.filter(isMedScheduledToday);
+            if (todaysMeds.length === 0) {
+                banner.className = "bg-white/95 dark:bg-[#111827]/95 backdrop-blur-md p-5 rounded-3xl shadow-sm border border-slate-200/80 dark:border-slate-800/90 transition-all";
+                banner.innerHTML = `
+                    <div class="flex items-center gap-3.5">
+                        <div class="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center text-xl shrink-0">
+                            <i class="fa-regular fa-calendar-check"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-bold text-slate-800 dark:text-slate-100">ไม่มีรายการยาที่ต้องทานในวันนี้</p>
+                            <p class="text-xs text-slate-400 mt-0.5">เพิ่มรายการยาใหม่ หรือกดสลับดูมุมมอง "ทั้งหมดทุกวัน" ด้านล่าง</p>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            const now = new Date();
+            const nowSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+
+            const pendingDoses = [];
+            todaysMeds.forEach(med => {
+                med.times.forEach(slot => {
+                    if (!med.takenSlots.includes(slot)) {
+                        const [hh, mm] = slot.split(':').map(Number);
+                        const slotSeconds = hh * 3600 + mm * 60;
+                        const diffSeconds = slotSeconds - nowSeconds;
+                        pendingDoses.push({
+                            med,
+                            slot,
+                            slotSeconds,
+                            diffSeconds,
+                            isOverdue: diffSeconds < 0
+                        });
+                    }
+                });
+            });
+
+            if (pendingDoses.length === 0) {
+                banner.className = "bg-gradient-to-r from-emerald-600 to-teal-600 text-white p-5 rounded-3xl shadow-lg shadow-emerald-600/15 border border-emerald-400/30 transition-all";
+                banner.innerHTML = `
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-2xl shrink-0">
+                            <i class="fa-solid fa-award"></i>
+                        </div>
+                        <div>
+                            <span class="text-[10px] font-extrabold uppercase tracking-wider bg-white/20 px-2.5 py-0.5 rounded-full">ภารกิจวันนี้สำเร็จ 100%</span>
+                            <h3 class="text-base font-extrabold mt-1">ยอดเยี่ยม! คุณทานยาครบทุกมื้อของวันนี้แล้ว</h3>
+                            <p class="text-xs text-emerald-100">รักษาสุขภาพและทานยาตรงเวลาแบบนี้ต่อไปนะครับ</p>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            const upcoming = pendingDoses.filter(d => !d.isOverdue).sort((a, b) => a.diffSeconds - b.diffSeconds);
+            const overdue = pendingDoses.filter(d => d.isOverdue).sort((a, b) => a.slotSeconds - b.slotSeconds);
+            const target = upcoming.length > 0 ? upcoming[0] : overdue[0];
+
+            const absSec = Math.abs(target.diffSeconds);
+            const hrs = String(Math.floor(absSec / 3600)).padStart(2, '0');
+            const mins = String(Math.floor((absSec % 3600) / 60)).padStart(2, '0');
+            const secs = String(absSec % 60).padStart(2, '0');
+            const hmsClock = `${hrs}:${mins}:${secs}`;
+
+            const statusBadge = target.isOverdue
+                ? `เลยเวลามา ${hmsClock}`
+                : `อีก ${hmsClock}`;
+
+            const gradientClass = target.isOverdue
+                ? "bg-gradient-to-r from-amber-600 via-orange-600 to-rose-600 shadow-amber-600/20 border-amber-400/30"
+                : "bg-gradient-to-r from-teal-600 via-emerald-600 to-teal-700 shadow-teal-600/20 border-teal-400/30";
+
+            banner.className = `${gradientClass} text-white p-5 rounded-3xl shadow-lg border transition-all`;
+            banner.innerHTML = `
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div class="flex items-start sm:items-center gap-3.5 min-w-0">
+                        <div class="w-13 h-13 px-3 py-2 rounded-2xl bg-white/15 backdrop-blur-sm flex flex-col items-center justify-center shrink-0 border border-white/25">
+                            <span class="text-[10px] font-semibold opacity-85">เวลาเตือน</span>
+                            <span class="text-base font-black font-mono tabular-nums leading-tight">${target.slot}</span>
+                        </div>
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="text-[11px] font-bold bg-white/20 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1.5 tabular-nums">
+                                    <i class="fa-solid ${target.isOverdue ? 'fa-clock text-amber-200' : 'fa-hourglass-half'}"></i>
+                                    ${target.isOverdue ? 'มื้อที่ค้างทาน' : 'มื้อยาถัดไป'} • ${statusBadge}
+                                </span>
+                            </div>
+                            <h3 class="text-base sm:text-lg font-extrabold truncate mt-1">${target.med.name}</h3>
+                            <p class="text-xs text-white/90 truncate">ขนาด ${target.med.dosage} • ${target.med.meal || 'หลังอาหาร'}</p>
+                        </div>
+                    </div>
+
+                    <button onclick="toggleTimeSlotTaken(${target.med.id}, '${target.slot}', true)" class="px-4 py-3 bg-white text-teal-800 hover:bg-teal-50 font-extrabold rounded-2xl text-xs shadow-md transition flex items-center justify-center gap-1.5 shrink-0">
+                        <i class="fa-solid fa-circle-check text-emerald-600 text-sm"></i>
+                        <span>ทานมื้อนี้ทันที (${target.slot})</span>
+                    </button>
+                </div>
+            `;
+        }
+
+        // ==========================================
+        // 9. FORM CONTROLS: TIME PRESETS, MEAL PILLS & DAYS
+        // ==========================================
+        function addTimeSlot(timeVal = '') {
+            const container = document.getElementById('timeSlotsContainer');
+            const div = document.createElement('div');
+            div.className = 'flex items-center gap-2';
+            div.innerHTML = `
+                <input type="time" required value="${timeVal}" onchange="syncPresetTimeButtons()" class="med-time-input flex-1 px-3.5 py-2.5 text-sm bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 dark:text-white tabular-nums">
+                <button type="button" onclick="removeTimeSlot(this)" class="p-2.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/50 text-rose-600 rounded-xl transition border border-rose-200/80 dark:border-rose-900/50 shrink-0" title="ลบเวลานี้">
+                    <i class="fa-solid fa-trash-can text-xs"></i>
+                </button>
+            `;
+            container.appendChild(div);
+            syncPresetTimeButtons();
+        }
+
+        function removeTimeSlot(btn) {
+            const container = document.getElementById('timeSlotsContainer');
+            if (container.children.length > 1) {
+                btn.parentElement.remove();
+                syncPresetTimeButtons();
+            } else {
+                showToast('ต้องมีเวลาเตือนอย่างน้อย 1 ช่วงเวลาครับ', 'warning');
+            }
+        }
+
+        function toggleQuickTimePreset(presetTime) {
+            const container = document.getElementById('timeSlotsContainer');
+            const inputs = Array.from(container.querySelectorAll('.med-time-input'));
+            const existingInput = inputs.find(inp => inp.value === presetTime);
+
+            if (existingInput) {
+                if (inputs.length > 1) {
+                    existingInput.parentElement.remove();
+                } else {
+                    showToast('ต้องมีเวลาเตือนอย่างน้อย 1 ช่วงเวลาครับ', 'warning');
+                }
+            } else {
+                // If there's an empty input, fill it; otherwise add new slot
+                const emptyInput = inputs.find(inp => !inp.value);
+                if (emptyInput) {
+                    emptyInput.value = presetTime;
+                } else {
+                    addTimeSlot(presetTime);
+                }
+            }
+            syncPresetTimeButtons();
+        }
+
+        function syncPresetTimeButtons() {
+            const currentTimes = Array.from(document.querySelectorAll('.med-time-input')).map(i => i.value);
+            document.querySelectorAll('.preset-time-btn').forEach(btn => {
+                const preset = btn.getAttribute('data-preset');
+                if (currentTimes.includes(preset)) {
+                    btn.className = 'preset-time-btn py-1.5 px-1 rounded-xl text-[10px] font-bold bg-teal-600 text-white border border-teal-600 shadow-xs transition text-center';
+                } else {
+                    btn.className = 'preset-time-btn py-1.5 px-1 rounded-xl text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/70 dark:border-slate-700 hover:border-teal-400 transition text-center';
+                }
+            });
+        }
+
+        function selectMealPill(mealValue) {
+            document.getElementById('medMeal').value = mealValue;
+            document.querySelectorAll('.meal-pill-btn').forEach(btn => {
+                if (btn.getAttribute('data-meal') === mealValue) {
+                    btn.className = 'meal-pill-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-teal-600 text-white shadow-xs transition';
+                } else {
+                    btn.className = 'meal-pill-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-700 transition';
+                }
+            });
+        }
+
+        function initDaySelectorUI() {
+            const labels = document.querySelectorAll('#daysCheckboxContainer label');
+            labels.forEach(label => {
+                const cb = label.querySelector('input');
+                syncDayLabelStyle(label, cb.checked);
+                cb.addEventListener('change', () => syncDayLabelStyle(label, cb.checked));
+            });
+        }
+
+        function syncDayLabelStyle(label, isChecked) {
+            if (isChecked) {
+                label.classList.add('bg-teal-600', 'text-white', 'dark:bg-teal-600', 'shadow-xs');
+                label.classList.remove('bg-slate-100', 'dark:bg-slate-800', 'text-slate-600', 'dark:text-slate-300');
+            } else {
+                label.classList.remove('bg-teal-600', 'text-white', 'dark:bg-teal-600', 'shadow-xs');
+                label.classList.add('bg-slate-100', 'dark:bg-slate-800', 'text-slate-600', 'dark:text-slate-300');
+            }
+        }
+
+        function toggleAllDays() {
+            const checkboxes = Array.from(document.querySelectorAll('.day-checkbox'));
+            const allChecked = checkboxes.every(cb => cb.checked);
+            checkboxes.forEach(cb => {
+                cb.checked = !allChecked;
+                cb.dispatchEvent(new Event('change'));
+            });
+        }
+
+        function setDayFilter(mode) {
+            dayFilterMode = mode;
+            const todayBtn = document.getElementById('viewTodayBtn');
+            const allBtn = document.getElementById('viewAllDaysBtn');
+            if (mode === 'today') {
+                todayBtn.className = "px-3.5 py-1.5 rounded-xl bg-white dark:bg-slate-900 text-teal-600 dark:text-teal-400 shadow-xs transition flex items-center gap-1.5";
+                allBtn.className = "px-3.5 py-1.5 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition flex items-center gap-1.5";
+            } else {
+                allBtn.className = "px-3.5 py-1.5 rounded-xl bg-white dark:bg-slate-900 text-teal-600 dark:text-teal-400 shadow-xs transition flex items-center gap-1.5";
+                todayBtn.className = "px-3.5 py-1.5 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition flex items-center gap-1.5";
+            }
+            renderMedications();
+        }
+
+        // ==========================================
+        // 10. MEDICATION CRUD & PER-SLOT TRACKING
+        // ==========================================
+        function handleFormSubmit(e) {
+            e.preventDefault();
+            const editId = document.getElementById('editId').value;
+            const name = document.getElementById('medName').value.trim();
+            const dosage = document.getElementById('medDosage').value.trim();
+
+            const timeInputs = document.querySelectorAll('.med-time-input');
+            const times = [...new Set(Array.from(timeInputs).map(input => input.value).filter(Boolean))].sort();
+
+            const meal = document.getElementById('medMeal').value;
+            const stockVal = document.getElementById('medStock').value;
+            const warning = document.getElementById('medWarning').value.trim();
+            const note = document.getElementById('medNote').value.trim();
+            const stock = stockVal !== '' ? parseInt(stockVal, 10) : null;
+
+            const selectedDays = [];
+            document.querySelectorAll('.day-checkbox').forEach(cb => {
+                if (cb.checked) selectedDays.push(cb.value);
+            });
+
+            if (selectedDays.length === 0) {
+                showToast('กรุณาเลือกวันที่ต้องทานอย่างน้อย 1 วัน', 'warning');
+                return;
+            }
+
+            if (editId) {
+                const med = medications.find(m => m.id === parseInt(editId, 10));
+                if (med) {
+                    const keptTakenSlots = (med.takenSlots || []).filter(t => times.includes(t));
+                    Object.assign(med, {
+                        name, dosage, times, time: times[0] || '08:00',
+                        meal, stock, warning, note, days: selectedDays,
+                        takenSlots: keptTakenSlots,
+                        taken: keptTakenSlots.length >= times.length
+                    });
+                    showToast(`อัปเดตรายการยา "${name}" เรียบร้อยแล้ว`, 'success');
+                }
+            } else {
+                medications.push({
+                    id: Date.now(),
+                    name, dosage, times, time: times[0] || '08:00',
+                    meal, stock, warning, note,
+                    days: selectedDays,
+                    takenSlots: [],
+                    taken: false
+                });
+                showToast(`เพิ่มรายการยา "${name}" เรียบร้อยแล้ว`, 'success');
+            }
+
+            recordTodayAdherence();
+            saveUserData();
+            renderMedications();
+            updateDashboard();
+            updateNextDoseBanner();
+            resetForm();
+        }
+
+        function editMedication(id) {
+            const med = medications.find(m => m.id === id);
+            if (!med) return;
+
+            document.getElementById('editId').value = med.id;
+            document.getElementById('medName').value = med.name;
+            document.getElementById('medDosage').value = med.dosage;
+            selectMealPill(med.meal || 'หลังอาหาร');
+            document.getElementById('medStock').value = med.stock !== null && med.stock !== undefined ? med.stock : '';
+            document.getElementById('medWarning').value = med.warning || '';
+            document.getElementById('medNote').value = med.note || '';
+
+            const container = document.getElementById('timeSlotsContainer');
+            container.innerHTML = '';
+            const timesList = med.times || [med.time || '08:00'];
+            timesList.forEach(t => addTimeSlot(t));
+            syncPresetTimeButtons();
+
+            if (med.days) {
+                document.querySelectorAll('.day-checkbox').forEach(cb => {
+                    cb.checked = med.days.includes(cb.value);
+                    cb.dispatchEvent(new Event('change'));
+                });
+            }
+
+            document.getElementById('formTitle').innerText = 'แก้ไขรายการยา';
+            document.getElementById('submitBtn').innerHTML = '<i class="fa-solid fa-pen-to-square"></i> อัปเดตรายการยา';
+            document.getElementById('cancelEditBtn').classList.remove('hidden');
+            document.getElementById('medForm').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function resetForm() {
+            document.getElementById('medForm').reset();
+            document.getElementById('editId').value = '';
+            document.getElementById('formTitle').innerText = 'เพิ่มรายการยาใหม่';
+            document.getElementById('submitBtn').innerHTML = '<i class="fa-solid fa-floppy-disk"></i> บันทึกรายการยา';
+            document.getElementById('cancelEditBtn').classList.add('hidden');
+            selectMealPill('หลังอาหาร');
+
+            const container = document.getElementById('timeSlotsContainer');
+            container.innerHTML = '';
+            addTimeSlot('08:00');
+            syncPresetTimeButtons();
+
+            document.querySelectorAll('.day-checkbox').forEach(cb => {
+                cb.checked = true;
+                cb.dispatchEvent(new Event('change'));
+            });
+        }
+
+        function toggleTimeSlotTaken(medId, slotTime, forceState = null) {
+            const med = medications.find(m => m.id === medId);
+            if (!med) return;
+
+            if (!Array.isArray(med.takenSlots)) med.takenSlots = [];
+            const alreadyTaken = med.takenSlots.includes(slotTime);
+            const nextState = forceState !== null ? forceState : !alreadyTaken;
+
+            if (nextState && !alreadyTaken) {
+                med.takenSlots.push(slotTime);
+                med.takenSlots.sort();
+                if (med.stock !== null && med.stock > 0) {
+                    med.stock -= 1;
+                }
+                snoozedAlarms = snoozedAlarms.filter(
+                    s => !(s.medId === medId && s.slotTime === slotTime)
+                );
+                saveSnoozes();
+                addLog(`${med.name} [${slotTime}]`, med.dosage, med.meal, 'ทานแล้ว');
+                showToast(`บันทึกการทานยา ${med.name} รอบ ${slotTime} แล้ว`, 'success');
+            } else if (!nextState && alreadyTaken) {
+                med.takenSlots = med.takenSlots.filter(t => t !== slotTime);
+                if (med.stock !== null) {
+                    med.stock += 1;
+                }
+                addLog(`${med.name} [${slotTime}]`, med.dosage, med.meal, 'ยกเลิกการทาน');
+                showToast(`ยกเลิกสถานะรอบ ${slotTime} ของ ${med.name}`, 'info');
+            }
+
+            med.taken = med.times.length > 0 && med.takenSlots.length >= med.times.length;
+
+            recordTodayAdherence();
+            saveUserData();
+            renderMedications();
+            updateDashboard();
+            updateNextDoseBanner();
+        }
+
+        function handleQuickDoseAction(medId) {
+            const med = medications.find(m => m.id === medId);
+            if (!med) return;
+
+            const untakenSlots = med.times.filter(t => !med.takenSlots.includes(t));
+            if (untakenSlots.length > 0) {
+                toggleTimeSlotTaken(medId, untakenSlots[0], true);
+            } else {
+                const lastSlot = med.takenSlots[med.takenSlots.length - 1];
+                if (lastSlot) {
+                    toggleTimeSlotTaken(medId, lastSlot, false);
+                }
+            }
+        }
+
+        function deleteMedication(id) {
+            const med = medications.find(m => m.id === id);
+            openConfirmModal(
+                'ลบรายการยา',
+                `คุณต้องการลบ "${med ? med.name : 'รายการยานี้'}" ออกจากระบบใช่หรือไม่?`,
+                () => {
+                    medications = medications.filter(m => m.id !== id);
+                    snoozedAlarms = snoozedAlarms.filter(s => s.medId !== id);
+                    saveSnoozes();
+                    recordTodayAdherence();
+                    saveUserData();
+                    renderMedications();
+                    updateDashboard();
+                    updateNextDoseBanner();
+                    showToast('ลบรายการยาเรียบร้อยแล้ว', 'info');
+                }
+            );
+        }
+
+        // ==========================================
+        // 11. QUICK STOCK REFILL MODAL
+        // ==========================================
+        function openRefillModal(medId) {
+            const med = medications.find(m => m.id === medId);
+            if (!med) return;
+            activeRefillMedId = medId;
+            document.getElementById('refillMedName').innerText = med.name;
+            document.getElementById('refillCurrentStock').innerText = med.stock !== null ? med.stock : 0;
+            document.getElementById('refillAmountInput').value = 30;
+            document.getElementById('refillModal').classList.remove('hidden');
+        }
+
+        function closeRefillModal() {
+            activeRefillMedId = null;
+            document.getElementById('refillModal').classList.add('hidden');
+        }
+
+        function setRefillAmount(val) {
+            document.getElementById('refillAmountInput').value = val;
+        }
+
+        function confirmRefillStock() {
+            if (!activeRefillMedId) return;
+            const med = medications.find(m => m.id === activeRefillMedId);
+            const addQty = parseInt(document.getElementById('refillAmountInput').value, 10);
+            if (!med || isNaN(addQty) || addQty <= 0) {
+                showToast('กรุณาระบุจำนวนยาที่ต้องการเติมให้ถูกต้อง', 'warning');
+                return;
+            }
+            med.stock = (med.stock || 0) + addQty;
+            saveUserData();
+            renderMedications();
+            showToast(`เติมสต็อก "${med.name}" เพิ่ม ${addQty} เม็ด (รวม ${med.stock} เม็ด)`, 'success');
+            closeRefillModal();
+        }
+
+        // ==========================================
+        // 12. RENDER MEDICATIONS, RING & 7-DAY CHART
+        // ==========================================
+        function renderMedications() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const filter = document.getElementById('filterStatus').value;
+            const container = document.getElementById('medList');
+
+            let filtered = medications.filter(m =>
+                m.name.toLowerCase().includes(search) ||
+                (m.warning && m.warning.toLowerCase().includes(search))
+            );
+
+            if (dayFilterMode === 'today') {
+                filtered = filtered.filter(isMedScheduledToday);
+            }
+
+            if (filter === 'pending') filtered = filtered.filter(m => !m.taken);
+            if (filter === 'taken') filtered = filtered.filter(m => m.taken);
+
+            document.getElementById('countMeds').innerText = filtered.length;
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12 bg-white/95 dark:bg-[#111827]/95 rounded-3xl border border-slate-200/80 dark:border-slate-800/90 text-slate-400 text-xs shadow-sm space-y-2">
+                        <div class="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center text-xl mx-auto">
+                            <i class="fa-solid fa-box-open"></i>
+                        </div>
+                        <p class="font-semibold text-slate-600 dark:text-slate-300">${dayFilterMode === 'today' ? 'ไม่มีรายการยาที่ต้องทานในวันนี้' : 'ไม่พบรายการยาตามคำค้นหา'}</p>
+                        <p class="text-[11px] text-slate-400">เพิ่มรายการยาใหม่ได้จากฟอร์มด้านซ้าย</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = filtered.map(m => {
+                const isLowStock = m.stock !== null && m.stock <= 5;
+                const scheduledToday = isMedScheduledToday(m);
+                const daysStr = m.days && m.days.length === 7
+                    ? 'ทุกวัน'
+                    : (m.days && m.days.length > 0 ? m.days.join(', ') : 'ทุกวัน');
+                const timesArr = m.times || [m.time || '08:00'];
+                const takenSlots = m.takenSlots || [];
+                const activeMedSnoozes = snoozedAlarms.filter(s => s.medId === m.id);
+
+                // Side accent bar color
+                let accentBarColor = 'bg-teal-500';
+                if (!scheduledToday) accentBarColor = 'bg-slate-400';
+                else if (m.taken) accentBarColor = 'bg-emerald-500';
+                else if (activeMedSnoozes.length > 0) accentBarColor = 'bg-amber-500';
+
+                // Per-time-slot interactive badges
+                const timesBadgeHtml = timesArr.map(t => {
+                    const isSlotDone = takenSlots.includes(t);
+                    const slotSnooze = activeMedSnoozes.find(s => s.slotTime === t);
+                    if (isSlotDone) {
+                        return `
+                            <button type="button" onclick="toggleTimeSlotTaken(${m.id}, '${t}')" title="คลิกเพื่อยกเลิกการทานรอบ ${t}"
+                                class="px-2.5 py-1 rounded-xl text-xs font-mono tabular-nums font-bold bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 flex items-center gap-1 transition hover:opacity-85">
+                                <i class="fa-solid fa-check text-[10px]"></i> ${t}
+                            </button>
+                        `;
+                    }
+                    return `
+                        <button type="button" onclick="toggleTimeSlotTaken(${m.id}, '${t}')" title="คลิกเพื่อบันทึกว่าทานรอบ ${t} แล้ว"
+                            class="px-2.5 py-1 rounded-xl text-xs font-mono tabular-nums font-bold ${slotSnooze ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300' : 'bg-teal-50 dark:bg-teal-950/60 border-teal-200 dark:border-teal-800/70 text-teal-700 dark:text-teal-300'} border flex items-center gap-1 transition hover:bg-teal-100 dark:hover:bg-teal-900/50">
+                            <i class="fa-regular fa-clock text-[10px]"></i> ${t}
+                        </button>
+                    `;
+                }).join('');
+
+                const snoozeBadgeHtml = activeMedSnoozes.map(s => {
+                    const wakeTime = new Date(s.triggerAt);
+                    const wakeHM = `${String(wakeTime.getHours()).padStart(2, '0')}:${String(wakeTime.getMinutes()).padStart(2, '0')}`;
+                    return `
+                        <span class="text-[11px] px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-300/80 dark:border-amber-800 font-bold inline-flex items-center gap-1.5 animate-pulse-slow">
+                            <i class="fa-solid fa-bell-slash"></i> เลื่อนเตือน (${s.slotTime} → ${wakeHM})
+                            <button type="button" onclick="cancelSnooze(${m.id}, '${s.slotTime}')" class="hover:text-rose-600 ml-0.5" title="ยกเลิกเลื่อนเตือน"><i class="fa-solid fa-xmark"></i></button>
+                        </span>
+                    `;
+                }).join(' ');
+
+                const untakenSlots = timesArr.filter(t => !takenSlots.includes(t));
+                const nextSlot = untakenSlots[0];
+                const mainBtnText = m.taken
+                    ? (timesArr.length > 1 ? `ทานครบ (${takenSlots.length}/${timesArr.length})` : 'ทานแล้ว')
+                    : (timesArr.length > 1 ? `ทานมื้อ ${nextSlot}` : 'ทานยา');
+
+                return `
+                    <div class="relative overflow-hidden bg-white/95 dark:bg-[#111827]/95 backdrop-blur-md p-4 sm:p-5 pl-5 sm:pl-6 rounded-3xl border ${m.taken ? 'border-emerald-200/80 dark:border-emerald-900/40' : 'border-slate-200/80 dark:border-slate-800/90'} shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4 transition-all hover:border-teal-400/60 dark:hover:border-teal-600/60 hover:shadow-md">
+                        <!-- Left Status Accent Bar -->
+                        <div class="absolute left-0 top-3 bottom-3 w-1.5 rounded-r-full ${accentBarColor}"></div>
+
+                        <div class="flex flex-col sm:flex-row items-start gap-3.5 w-full md:w-auto min-w-0">
+                            <div class="flex flex-wrap sm:flex-col gap-1.5 shrink-0">
+                                ${timesBadgeHtml}
+                            </div>
+                            <div class="space-y-1.5 w-full min-w-0">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <h4 class="font-bold text-base text-slate-900 dark:text-slate-100 ${m.taken ? 'line-through opacity-60' : ''}">${m.name}</h4>
+                                    <span class="text-[11px] px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold">${m.meal || 'หลังอาหาร'}</span>
+                                    <span class="text-[11px] px-2.5 py-0.5 rounded-lg ${scheduledToday ? 'bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'} font-medium">🗓️ ${daysStr}</span>
+                                    ${!scheduledToday ? `<span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-200/70 dark:bg-slate-800 text-slate-500 font-semibold">ไม่ได้ทานวันนี้</span>` : ''}
+                                    ${snoozeBadgeHtml}
+                                </div>
+
+                                <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                                    ขนาด: <span class="text-slate-700 dark:text-slate-200 font-semibold">${m.dosage}</span>
+                                    ${timesArr.length > 1 ? ` • ความคืบหน้าวันนี้: <span class="font-bold text-teal-600 dark:text-teal-400 tabular-nums">${takenSlots.length}/${timesArr.length} มื้อ</span>` : ''}
+                                    ${m.note ? ' • ' + m.note : ''}
+                                </p>
+
+                                ${m.warning ? `<p class="text-[11px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-3 py-1 rounded-xl font-semibold inline-flex items-center gap-1.5 border border-amber-200/60 dark:border-amber-900/40"><i class="fa-solid fa-triangle-exclamation"></i> ${m.warning}</p>` : ''}
+
+                                ${m.stock !== null ? `
+                                    <div class="flex items-center gap-2 flex-wrap pt-0.5">
+                                        <span class="text-[11px] font-medium tabular-nums ${isLowStock ? 'text-rose-500 font-bold' : 'text-slate-400'}">
+                                            <i class="fa-solid fa-boxes-stacked mr-1"></i> คงเหลือ: ${m.stock} เม็ด ${isLowStock ? '⚠️ (ใกล้หมดแล้ว!)' : ''}
+                                        </span>
+                                        <button type="button" onclick="openRefillModal(${m.id})" class="text-[11px] px-2.5 py-0.5 rounded-lg font-bold transition inline-flex items-center gap-1 ${isLowStock ? 'bg-rose-100 hover:bg-rose-200 text-rose-700 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-800 animate-pulse' : 'bg-slate-100 hover:bg-teal-50 text-slate-600 hover:text-teal-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700'}">
+                                            <i class="fa-solid fa-plus text-[9px]"></i> เติมยา
+                                        </button>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+
+                        <div class="flex items-center space-x-2 w-full md:w-auto justify-end pt-3 md:pt-0 border-t md:border-t-0 border-slate-100 dark:border-slate-800 shrink-0">
+                            <button onclick="handleQuickDoseAction(${m.id})" class="px-4 py-2.5 rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5 ${m.taken ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/50' : 'bg-teal-600 text-white hover:bg-teal-700 shadow-teal-600/20'}">
+                                <i class="fa-solid ${m.taken ? 'fa-circle-check' : 'fa-check'}"></i> <span>${mainBtnText}</span>
+                            </button>
+                            <button onclick="editMedication(${m.id})" class="p-2.5 bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-teal-600 dark:hover:text-teal-400 rounded-xl transition" title="แก้ไข">
+                                <i class="fa-solid fa-pen-to-square text-xs"></i>
+                            </button>
+                            <button onclick="deleteMedication(${m.id})" class="p-2.5 bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-rose-500 rounded-xl transition" title="ลบ">
+                                <i class="fa-solid fa-trash-can text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function calculateTodayAdherencePercent() {
+            const todaysMeds = medications.filter(isMedScheduledToday);
+            let totalDoses = 0;
+            let takenDoses = 0;
+            todaysMeds.forEach(m => {
+                const slots = m.times || [m.time || '08:00'];
+                totalDoses += slots.length;
+                takenDoses += (m.takenSlots || []).filter(t => slots.includes(t)).length;
+            });
+            return totalDoses > 0 ? Math.round((takenDoses / totalDoses) * 100) : 0;
+        }
+
+        function recordTodayAdherence() {
+            if (!currentUser) return;
+            const todayKey = getTodayDateKey();
+            dailyHistory[todayKey] = calculateTodayAdherencePercent();
+        }
+
+        function updateDashboard() {
+            const todaysMeds = medications.filter(isMedScheduledToday);
+            let total = 0;
+            let taken = 0;
+
+            todaysMeds.forEach(m => {
+                const slots = m.times || [m.time || '08:00'];
+                total += slots.length;
+                taken += (m.takenSlots || []).filter(t => slots.includes(t)).length;
+            });
+
+            const pending = Math.max(0, total - taken);
+            const percent = total > 0 ? Math.round((taken / total) * 100) : 0;
+
+            document.getElementById('statTotal').innerText = total;
+            document.getElementById('statTaken').innerText = taken;
+            document.getElementById('statPending').innerText = pending;
+            document.getElementById('progressPercent').innerText = `${percent}%`;
+
+            // Update SVG Circular Progress Ring (circumference = 2 * PI * 40 = 251.2)
+            const ring = document.getElementById('progressRingCircle');
+            if (ring) {
+                const circumference = 251.2;
+                const offset = circumference - (percent / 100) * circumference;
+                ring.style.strokeDashoffset = offset;
+            }
+
+            renderAdherenceChart();
+        }
+
+        function renderAdherenceChart() {
+            const container = document.getElementById('adherenceChart');
+            if (!container) return;
+
+            const daysData = [];
+            let sum = 0;
+            for (let i = -6; i <= 0; i++) {
+                const key = getTodayDateKey(i);
+                const d = new Date();
+                d.setDate(d.getDate() + i);
+                const label = i === 0 ? 'วันนี้' : THAI_DAYS[d.getDay()];
+                const pct = typeof dailyHistory[key] === 'number' ? dailyHistory[key] : 0;
+                sum += pct;
+                daysData.push({ key, label, pct, isToday: i === 0 });
+            }
+
+            const avg = Math.round(sum / 7);
+            document.getElementById('avgAdherenceLabel').innerText = `เฉลี่ย ${avg}%`;
+
+            container.innerHTML = daysData.map(day => {
+                const barColor = day.pct >= 80
+                    ? 'bg-gradient-to-t from-teal-500 to-emerald-400'
+                    : (day.pct >= 40 ? 'bg-teal-500' : (day.pct > 0 ? 'bg-amber-400' : 'bg-slate-200/70 dark:bg-slate-700/60'));
+                const heightPct = day.pct > 0 ? Math.max(16, day.pct) : 8;
+                return `
+                    <div class="flex flex-col items-center gap-1 h-full justify-end" title="${day.key}: ${day.pct}%">
+                        <span class="text-[9px] font-bold tabular-nums ${day.isToday ? 'text-teal-600 dark:text-teal-400' : 'text-slate-400'}">${day.pct}%</span>
+                        <div class="w-full max-w-[24px] h-13 bg-slate-100 dark:bg-slate-800/90 rounded-full flex items-end overflow-hidden p-0.5 border border-slate-200/60 dark:border-slate-700/70">
+                            <div class="w-full rounded-full transition-all duration-500 ${barColor}" style="height: ${heightPct}%"></div>
+                        </div>
+                        <span class="text-[10px] font-bold ${day.isToday ? 'text-teal-600 dark:text-teal-400' : 'text-slate-400'}">${day.label}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ==========================================
+        // 13. HYBRID AI PHARMACIST (Gemini API + Built-in Engine)
+        // ==========================================
+        async function callGeminiWithFallbackModels(payload) {
+            const models = ['gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-2.0-flash'];
+            for (const model of models) {
+                try {
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!response.ok) continue;
+                    const result = await response.json();
+                    let rawText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (!rawText) continue;
+                    rawText = rawText.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
+                    return JSON.parse(rawText);
+                } catch (err) {
+                    // Try next model or fall back to built-in pharmacological engine
+                }
+            }
+            return null;
+        }
+
+        // A. AI Autofill Medication Form (100% Reliable)
+        async function aiAutoFillMedication() {
+            const medName = document.getElementById('medName').value.trim();
+            if (!medName) {
+                showToast('กรุณาพิมพ์ชื่อยาก่อนกดปุ่ม ✨ เติมข้อมูลอัตโนมัติ', 'warning');
+                document.getElementById('medName').focus();
+                return;
+            }
+
+            const btn = document.getElementById('aiAutoFillBtn');
+            const originalHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> <span>กำลังวิเคราะห์...</span>`;
+
+            const payload = {
+                contents: [{
+                    parts: [{
+                        text: `ให้ข้อมูลมาตรฐานเบื้องต้นสำหรับผู้ป่วยทั่วไปในประเทศไทยเกี่ยวกับยา: "${medName}"`
+                    }]
+                }],
+                systemInstruction: {
+                    parts: [{
+                        text: "คุณคือเภสัชกรผู้เชี่ยวชาญชาวไทย ตอบเป็นภาษาไทยที่เข้าใจง่าย กระชับ และปลอดภัย สำหรับ field 'meal' ให้เลือกตอบเฉพาะค่าใดค่าหนึ่งต่อไปนี้เท่านั้น: 'หลังอาหาร', 'ก่อนอาหาร', 'พร้อมอาหาร', 'ก่อนนอน', 'ตามอาการ'"
+                    }]
+                },
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: {
+                            dosage: { type: "STRING" },
+                            meal: { type: "STRING", enum: ["หลังอาหาร", "ก่อนอาหาร", "พร้อมอาหาร", "ก่อนนอน", "ตามอาการ"] },
+                            warning: { type: "STRING" },
+                            note: { type: "STRING" }
+                        },
+                        required: ["dosage", "meal", "warning", "note"]
+                    }
+                }
+            };
+
+            let data = await callGeminiWithFallbackModels(payload);
+
+            // Fallback to built-in clinical pharmacological engine if API unavailable
+            if (!data || !data.dosage) {
+                const localInfo = classifyDrugLocally(medName);
+                data = {
+                    dosage: localInfo.dosage,
+                    meal: localInfo.meal,
+                    warning: localInfo.warning,
+                    note: localInfo.note
+                };
+            }
+
+            document.getElementById('medDosage').value = data.dosage;
+            selectMealPill(data.meal || 'หลังอาหาร');
+            document.getElementById('medWarning').value = data.warning;
+            document.getElementById('medNote').value = data.note;
+
+            ['medDosage', 'medWarning', 'medNote'].forEach(id => {
+                const el = document.getElementById(id);
+                el.classList.add('ring-2', 'ring-teal-400');
+                setTimeout(() => el.classList.remove('ring-2', 'ring-teal-400'), 1400);
+            });
+
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+            showToast('✨ เติมข้อมูลยาให้อัตโนมัติแล้ว โปรดตรวจสอบให้ตรงกับฉลากยาของคุณ', 'success');
+        }
+
+        // B. Interactive Drug Interaction Checker Modal (100% Reliable)
+        function openDrugInteractionModal() {
+            resetInteractionDrugsFromProfile(false);
+            document.getElementById('aiInteractionModal').classList.remove('hidden');
+            runDrugInteractionAnalysis();
+        }
+
+        function closeDrugInteractionModal() {
+            document.getElementById('aiInteractionModal').classList.add('hidden');
+        }
+
+        function resetInteractionDrugsFromProfile(shouldRun = true) {
+            interactionDrugList = medications.map(m => ({
+                name: m.name,
+                dosage: m.dosage || '',
+                meal: m.meal || 'หลังอาหาร',
+                times: (m.times || [m.time || '08:00']).join(', '),
+                fromProfile: true
+            }));
+            renderInteractionChips();
+            if (shouldRun) runDrugInteractionAnalysis();
+        }
+
+        function addExtraInteractionDrug() {
+            const input = document.getElementById('extraInteractionDrugInput');
+            const val = input.value.trim();
+            if (!val) return;
+            quickAddInteractionTag(val);
+            input.value = '';
+        }
+
+        function quickAddInteractionTag(drugLabel) {
+            const exists = interactionDrugList.some(d => d.name.toLowerCase() === drugLabel.toLowerCase());
+            if (exists) {
+                showToast(`มี "${drugLabel}" ในรายการตรวจแล้ว`, 'info');
+                return;
+            }
+            interactionDrugList.push({
+                name: drugLabel,
+                dosage: 'ตามฉลาก',
+                meal: 'หลังอาหาร',
+                times: 'ทดสอบร่วม',
+                fromProfile: false
+            });
+            renderInteractionChips();
+            runDrugInteractionAnalysis();
+        }
+
+        function removeInteractionDrug(index) {
+            interactionDrugList.splice(index, 1);
+            renderInteractionChips();
+            runDrugInteractionAnalysis();
+        }
+
+        function renderInteractionChips() {
+            const container = document.getElementById('interactionChipsContainer');
+            document.getElementById('interactionDrugCount').innerText = interactionDrugList.length;
+
+            if (interactionDrugList.length === 0) {
+                container.innerHTML = `<span class="text-[11px] text-slate-400 italic">ยังไม่มีรายการยา กรุณาพิมพ์เพิ่มด้านล่างหรือกดปุ่มทดสอบด่วน</span>`;
+                return;
+            }
+
+            container.innerHTML = interactionDrugList.map((d, idx) => `
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold ${d.fromProfile ? 'bg-teal-50 dark:bg-teal-950/70 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800' : 'bg-indigo-50 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800'}">
+                    <span>${d.name}</span>
+                    <button type="button" onclick="removeInteractionDrug(${idx})" class="hover:text-rose-500 ml-0.5" title="นำออก"><i class="fa-solid fa-xmark"></i></button>
+                </span>
+            `).join('');
+        }
+
+        async function runDrugInteractionAnalysis() {
+            const body = document.getElementById('aiInteractionBody');
+
+            if (interactionDrugList.length === 0) {
+                body.innerHTML = `
+                    <div class="py-10 text-center space-y-2 text-slate-400">
+                        <i class="fa-solid fa-pills text-3xl text-slate-300 dark:text-slate-700"></i>
+                        <p class="font-bold text-slate-600 dark:text-slate-300">กรุณาเพิ่มชื่อยาอย่างน้อย 1-2 รายการด้านบนเพื่อเริ่มวิเคราะห์</p>
+                    </div>
+                `;
+                return;
+            }
+
+            body.innerHTML = `
+                <div class="py-10 text-center space-y-3">
+                    <div class="w-12 h-12 rounded-2xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 flex items-center justify-center text-xl mx-auto">
+                        <i class="fa-solid fa-spinner fa-spin"></i>
+                    </div>
+                    <p class="font-bold text-sm text-slate-700 dark:text-slate-200">กำลังวิเคราะห์ปฏิกิริยาระหว่างยา ${interactionDrugList.length} รายการ...</p>
+                    <p class="text-xs text-slate-400">ตรวจสอบความเข้ากันได้ ความซ้ำซ้อน และการจัดมื้อยาที่เหมาะสม</p>
+                </div>
+            `;
+
+            const medSummaryList = interactionDrugList.map((m, i) =>
+                `${i + 1}. ${m.name} (ขนาด: ${m.dosage}, มื้อ: ${m.meal}, เวลา: ${m.times})`
+            ).join('\n');
+
+            const payload = {
+                contents: [{
+                    parts: [{
+                        text: `ช่วยวิเคราะห์รายการยาและอาหารเสริมของผู้ป่วยรายนี้:\n${medSummaryList}`
+                    }]
+                }],
+                systemInstruction: {
+                    parts: [{
+                        text: "คุณคือเภสัชกรคลินิกผู้เชี่ยวชาญ วิเคราะห์ปฏิกิริยาระหว่างยา (Drug-Drug Interactions), ความซ้ำซ้อนของตัวยา และการจัดระยะห่างเวลาทานยา ตอบเป็นภาษาไทยที่ชัดเจน กระชับ และปลอดภัย"
+                    }]
+                },
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: {
+                            overallRisk: { type: "STRING", enum: ["safe", "caution", "warning"] },
+                            headline: { type: "STRING" },
+                            interactions: {
+                                type: "ARRAY",
+                                items: {
+                                    type: "OBJECT",
+                                    properties: {
+                                        drugs: { type: "STRING" },
+                                        severity: { type: "STRING", enum: ["ต่ำ", "ปานกลาง", "สูง"] },
+                                        detail: { type: "STRING" },
+                                        advice: { type: "STRING" }
+                                    },
+                                    required: ["drugs", "severity", "detail", "advice"]
+                                }
+                            },
+                            timingTips: {
+                                type: "ARRAY",
+                                items: { type: "STRING" }
+                            }
+                        },
+                        required: ["overallRisk", "headline", "interactions", "timingTips"]
+                    }
+                }
+            };
+
+            let res = await callGeminiWithFallbackModels(payload);
+            let engineBadgeText = 'AI เภสัชกรอัจฉริยะ (Gemini AI)';
+
+            // Guaranteed 100% fallback to Built-in Clinical Pharmacological Engine
+            if (!res || !res.headline) {
+                res = runLocalPharmacistAnalysis(interactionDrugList);
+                engineBadgeText = 'ฐานข้อมูลเภสัชวิทยาคลินิก (Clinical Engine)';
+            }
+
+            const riskBadges = {
+                safe: {
+                    bg: 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300',
+                    icon: 'fa-shield-check text-emerald-600',
+                    label: 'ปลอดภัย • ไม่พบปฏิกิริยารุนแรง'
+                },
+                caution: {
+                    bg: 'bg-amber-50 dark:bg-amber-950/50 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300',
+                    icon: 'fa-triangle-exclamation text-amber-600',
+                    label: 'ควรระมัดระวังปานกลาง • ควรเว้นระยะห่าง'
+                },
+                warning: {
+                    bg: 'bg-rose-50 dark:bg-rose-950/50 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300',
+                    icon: 'fa-circle-exclamation text-rose-600',
+                    label: 'อันตรายสูง • ควรปรึกษาแพทย์หรือเภสัชกร'
+                }
+            };
+            const badge = riskBadges[res.overallRisk] || riskBadges.caution;
+
+            const interactionsHtml = (res.interactions && res.interactions.length > 0)
+                ? res.interactions.map(item => {
+                    const sevColor = item.severity === 'สูง'
+                        ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
+                        : (item.severity === 'ปานกลาง'
+                            ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                            : 'bg-teal-100 text-teal-700 dark:bg-teal-950 dark:text-teal-300 border border-teal-200 dark:border-teal-800');
+                    return `
+                        <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/80 dark:border-slate-700 space-y-1.5">
+                            <div class="flex items-center justify-between gap-2 flex-wrap">
+                                <span class="font-bold text-slate-900 dark:text-white text-xs">${item.drugs}</span>
+                                <span class="text-[10px] font-bold px-2.5 py-0.5 rounded-full ${sevColor}">ความเสี่ยง: ${item.severity}</span>
+                            </div>
+                            <p class="text-slate-600 dark:text-slate-300 leading-relaxed">${item.detail}</p>
+                            <p class="text-teal-700 dark:text-teal-300 font-semibold flex items-start gap-1.5 pt-0.5">
+                                <i class="fa-solid fa-lightbulb mt-0.5 shrink-0"></i> <span>${item.advice}</span>
+                            </p>
+                        </div>
+                    `;
+                }).join('')
+                : `<div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 text-center border border-slate-200/60 dark:border-slate-700/60">
+                    <i class="fa-solid fa-check-circle text-emerald-500 text-base mb-1"></i>
+                    <p class="font-semibold text-slate-700 dark:text-slate-200">ไม่พบคู่ยาที่มีปฏิกิริยารบกวนกันในรายการที่เลือก</p>
+                    <p class="text-[11px] mt-0.5">ลองเพิ่มชื่อยาหรืออาหารเสริมอื่นด้านบนเพื่อทดสอบความเข้ากันได้เพิ่มเติมได้</p>
+                   </div>`;
+
+            const tipsHtml = (res.timingTips || []).map(tip =>
+                `<li class="flex items-start gap-2 text-slate-600 dark:text-slate-300"><i class="fa-solid fa-check text-teal-500 mt-1 shrink-0"></i><span>${tip}</span></li>`
+            ).join('');
+
+            body.innerHTML = `
+                <div class="flex justify-end">
+                    <span class="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                        ประมวลผลโดย: ${engineBadgeText}
+                    </span>
+                </div>
+
+                <div class="p-4 rounded-2xl border ${badge.bg} flex items-start gap-3">
+                    <i class="fa-solid ${badge.icon} text-xl mt-0.5 shrink-0"></i>
+                    <div>
+                        <span class="text-[10px] font-extrabold uppercase tracking-wider opacity-85">${badge.label}</span>
+                        <h4 class="font-bold text-sm mt-0.5">${res.headline}</h4>
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <h5 class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+                        <i class="fa-solid fa-pills text-indigo-500"></i> ผลการตรวจสอบปฏิกิริยาระหว่างยา
+                    </h5>
+                    ${interactionsHtml}
+                </div>
+
+                ${tipsHtml ? `
+                    <div class="p-3.5 rounded-2xl bg-teal-50/60 dark:bg-teal-950/30 border border-teal-200/70 dark:border-teal-900/40 space-y-2">
+                        <h5 class="font-bold text-teal-800 dark:text-teal-300 flex items-center gap-1.5">
+                            <i class="fa-solid fa-clock"></i> คำแนะนำการจัดตารางเวลาและมื้ออาหาร
+                        </h5>
+                        <ul class="space-y-1.5">${tipsHtml}</ul>
+                    </div>
+                ` : ''}
+            `;
+        }
+
+        // ==========================================
+        // 14. LOGS, EXPORTS (CSV/PDF/JSON) & SETTINGS
+        // ==========================================
+        function addLog(name, dosage, meal, status) {
+            const now = new Date();
+            const timeStr = `${now.toLocaleDateString('th-TH')} ${now.toLocaleTimeString('th-TH')}`;
+            logs.unshift({ id: Date.now(), time: timeStr, name, dosage, meal, status });
+            if (logs.length > 80) logs.pop();
+            saveUserData();
+            renderLogs();
+        }
+
+        function renderLogs() {
+            const container = document.getElementById('logsContainer');
+            document.getElementById('countLogs').innerText = logs.length;
+
+            if (logs.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-400 text-center py-8">ยังไม่มีประวัติการทานยา</p>`;
+                return;
+            }
+
+            container.innerHTML = logs.map(l => `
+                <div class="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl text-xs border border-slate-200/60 dark:border-slate-800 gap-2">
+                    <div class="min-w-0">
+                        <span class="font-bold text-slate-800 dark:text-slate-100">${l.name}</span>
+                        <span class="text-slate-400 ml-1">(${l.dosage})</span>
+                    </div>
+                    <div class="text-right shrink-0">
+                        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${l.status === 'ทานแล้ว' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300'}">${l.status}</span>
+                        <p class="text-[10px] text-slate-400 mt-0.5 font-mono tabular-nums">${l.time}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function confirmClearLogs() {
+            openConfirmModal(
+                'ล้างประวัติการทานยา',
+                'คุณต้องการล้างประวัติการทานยาทั้งหมดใช่หรือไม่? (ไม่กระทบรายการยาปัจจุบัน)',
+                () => {
+                    logs = [];
+                    saveUserData();
+                    renderLogs();
+                    showToast('ล้างประวัติการทานยาเรียบร้อยแล้ว', 'info');
+                }
+            );
+        }
+
+        function exportDataJSON() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(allUserData));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `med_backup_${currentUser || 'data'}_${getTodayDateKey()}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+            showToast('ดาวน์โหลดไฟล์สำรองข้อมูล JSON แล้ว', 'success');
+        }
+
+        function importDataJSON(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const fileReader = new FileReader();
+            fileReader.readAsText(file, "UTF-8");
+            fileReader.onload = (e) => {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    if (typeof parsed !== 'object' || parsed === null) throw new Error('Invalid');
+                    allUserData = parsed;
+                    localStorage.setItem('med_v35_pro_data', JSON.stringify(allUserData));
+                    loadUserData();
+                    showToast('นำเข้าข้อมูลสำเร็จเรียบร้อยแล้ว!', 'success');
+                    closeSettingsModal();
+                } catch (err) {
+                    showToast('ไฟล์สำรองไม่ถูกต้อง กรุณาตรวจสอบไฟล์อีกครั้ง', 'error');
+                }
+            };
+        }
+
+        function exportCSV() {
+            if (medications.length === 0) {
+                showToast('ไม่มีข้อมูลสำหรับส่งออก CSV', 'warning');
+                return;
+            }
+            let csv = '\uFEFFเวลาเตือน,มื้อที่ทานแล้ววันนี้,ชื่อยา,ขนาดยา,มื้ออาหาร,วันที่ทาน,คงเหลือ,ข้อควรระวัง,หมายเหตุ\n';
+            medications.forEach(m => {
+                const times = (m.times || [m.time]).join(', ');
+                const takenStr = (m.takenSlots && m.takenSlots.length > 0) ? m.takenSlots.join(', ') : 'ยังไม่ทาน';
+                const daysStr = (m.days || []).join(' ');
+                const stockStr = m.stock !== null ? `${m.stock} เม็ด` : '-';
+                csv += `"${times}","${takenStr}","${m.name}","${m.dosage}","${m.meal || ''}","${daysStr}","${stockStr}","${m.warning || ''}","${m.note || ''}"\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `med_report_${currentUser}_${getTodayDateKey()}.csv`;
+            link.click();
+            showToast('ส่งออกรายงาน CSV เรียบร้อยแล้ว', 'success');
+        }
+
+        function exportPDF() {
+            if (medications.length === 0) {
+                showToast('ไม่มีข้อมูลสำหรับสร้างรายงาน PDF', 'warning');
+                return;
+            }
+
+            document.getElementById('pdfUser').innerText = currentUser;
+            document.getElementById('pdfDate').innerText = new Date().toLocaleDateString('th-TH');
+            const tbody = document.getElementById('pdfTableBody');
+            tbody.innerHTML = medications.map(m => {
+                const times = (m.times || [m.time]).join(', ');
+                const days = (m.days || []).join(', ') || 'ทุกวัน';
+                const takenCount = (m.takenSlots || []).length;
+                const totalCount = (m.times || [m.time]).length;
+                const statusText = takenCount >= totalCount
+                    ? `ทานครบ (${takenCount}/${totalCount})`
+                    : `ทานแล้ว ${takenCount}/${totalCount} มื้อ`;
+                return `
+                    <tr>
+                        <td class="border p-2">${times}</td>
+                        <td class="border p-2">${m.name}</td>
+                        <td class="border p-2">${m.dosage}</td>
+                        <td class="border p-2">${m.meal || 'หลังอาหาร'}</td>
+                        <td class="border p-2">${days}</td>
+                        <td class="border p-2">${m.warning || '-'}</td>
+                        <td class="border p-2">${statusText}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            const element = document.getElementById('pdfExportContainer');
+            element.classList.remove('hidden');
+
+            const opt = {
+                margin:       0.5,
+                filename:     `med_report_${currentUser}_${getTodayDateKey()}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2 },
+                jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+            };
+
+            html2pdf().set(opt).from(element).save().then(() => {
+                element.classList.add('hidden');
+                showToast('สร้างรายงาน PDF เรียบร้อยแล้ว', 'success');
+            });
+        }
+
+        function switchTab(tab) {
+            const btnMeds = document.getElementById('tabMedsBtn');
+            const btnLogs = document.getElementById('tabLogsBtn');
+            const contentMeds = document.getElementById('tabMedsContent');
+            const contentLogs = document.getElementById('tabLogsContent');
+
+            if (tab === 'meds') {
+                btnMeds.className = "pb-3 border-b-2 border-teal-600 text-teal-600 dark:text-teal-400 flex items-center gap-2 font-bold transition";
+                btnLogs.className = "pb-3 border-b-2 border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 flex items-center gap-2 font-bold transition";
+                contentMeds.classList.remove('hidden');
+                contentLogs.classList.add('hidden');
+            } else {
+                btnLogs.className = "pb-3 border-b-2 border-teal-600 text-teal-600 dark:text-teal-400 flex items-center gap-2 font-bold transition";
+                btnMeds.className = "pb-3 border-b-2 border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 flex items-center gap-2 font-bold transition";
+                contentLogs.classList.remove('hidden');
+                contentMeds.classList.add('hidden');
+            }
+        }
+
+        function initTheme() {
+            if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+                document.getElementById('themeIcon').className = 'fa-solid fa-sun text-amber-400 text-xs';
+            } else {
+                document.documentElement.classList.remove('dark');
+                document.getElementById('themeIcon').className = 'fa-solid fa-moon text-xs';
+            }
+        }
+
+        function toggleDarkMode() {
+            const html = document.documentElement;
+            const icon = document.getElementById('themeIcon');
+            if (html.classList.contains('dark')) {
+                html.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+                icon.className = 'fa-solid fa-moon text-xs';
+            } else {
+                html.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+                icon.className = 'fa-solid fa-sun text-amber-400 text-xs';
+            }
+        }
+
+        function openSettingsModal() {
+            document.getElementById('alarmToneSelect').value = alarmTone;
+            document.getElementById('ttsToggleInput').checked = ttsEnabled;
+            updateAudioStatusUI();
+            document.getElementById('settingsModal').classList.remove('hidden');
+        }
+
+        function closeSettingsModal() {
+            stopSpeech();
+            document.getElementById('settingsModal').classList.add('hidden');
+        }
+
+        function saveSettings() {
+            alarmTone = document.getElementById('alarmToneSelect').value;
+            ttsEnabled = document.getElementById('ttsToggleInput').checked;
+
+            localStorage.setItem('med_alarm_tone', alarmTone);
+            localStorage.setItem('med_tts_enabled', String(ttsEnabled));
+
+            closeSettingsModal();
+            showToast('บันทึกการตั้งค่าเรียบร้อยแล้ว!', 'success');
+        }
+
+        // ==========================================
+        // 15. PWA ICON GENERATOR, MANIFEST, SERVICE WORKER & INSTALL GUIDE
+        // ==========================================
+        let deferredInstallPrompt = null;
+        let generatedIcon192 = '';
+        let generatedIcon512 = '';
+
+        function generateAppIconDataURL(size) {
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+
+            // 1. Full-bleed Teal-Emerald Gradient Background (iOS & Maskable Friendly)
+            const bgGrad = ctx.createLinearGradient(0, 0, size, size);
+            bgGrad.addColorStop(0, '#14b8a6');
+            bgGrad.addColorStop(0.5, '#0d9488');
+            bgGrad.addColorStop(1, '#047857');
+            ctx.fillStyle = bgGrad;
+            ctx.fillRect(0, 0, size, size);
+
+            // 2. Subtle Radial Highlight
+            const radGrad = ctx.createRadialGradient(size * 0.3, size * 0.25, size * 0.05, size * 0.5, size * 0.5, size * 0.7);
+            radGrad.addColorStop(0, 'rgba(255, 255, 255, 0.22)');
+            radGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+            ctx.fillStyle = radGrad;
+            ctx.fillRect(0, 0, size, size);
+
+            // 3. Soft Inner Glass Circle
+            ctx.beginPath();
+            ctx.arc(size * 0.5, size * 0.5, size * 0.36, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
+            ctx.fill();
+
+            // 4. Tilted Medical Capsule Pill Icon
+            ctx.save();
+            ctx.translate(size * 0.5, size * 0.5);
+            ctx.rotate(-Math.PI / 4);
+
+            const pillW = size * 0.48;
+            const pillH = size * 0.23;
+            const radius = pillH / 2;
+
+            // Shadow under pill
+            ctx.shadowColor = 'rgba(2, 6, 23, 0.28)';
+            ctx.shadowBlur = size * 0.04;
+            ctx.shadowOffsetY = size * 0.02;
+
+            // Left Half of Capsule (Crisp White)
+            ctx.beginPath();
+            ctx.moveTo(0, -radius);
+            ctx.lineTo(-pillW / 2 + radius, -radius);
+            ctx.arc(-pillW / 2 + radius, 0, radius, -Math.PI / 2, Math.PI / 2, true);
+            ctx.lineTo(0, radius);
+            ctx.closePath();
+            ctx.fillStyle = '#ffffff';
+            ctx.fill();
+
+            // Right Half of Capsule (Soft Mint Emerald)
+            ctx.beginPath();
+            ctx.moveTo(0, -radius);
+            ctx.lineTo(pillW / 2 - radius, -radius);
+            ctx.arc(pillW / 2 - radius, 0, radius, -Math.PI / 2, Math.PI / 2, false);
+            ctx.lineTo(0, radius);
+            ctx.closePath();
+            ctx.fillStyle = '#a7f3d0';
+            ctx.fill();
+
+            // Reset shadow & add glossy highlight bar on top half
+            ctx.shadowColor = 'transparent';
+            ctx.beginPath();
+            ctx.roundRect(-pillW * 0.34, -radius * 0.62, pillW * 0.68, radius * 0.34, radius * 0.17);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+            ctx.fill();
+
+            ctx.restore();
+
+            // 5. Medical Cross Sparkle Accent (Top Right)
+            const crossX = size * 0.72;
+            const crossY = size * 0.28;
+            const armLen = size * 0.075;
+            const armThick = size * 0.026;
+            ctx.fillStyle = '#fde68a';
+            ctx.beginPath();
+            ctx.roundRect(crossX - armThick / 2, crossY - armLen / 2, armThick, armLen, armThick / 2);
+            ctx.roundRect(crossX - armLen / 2, crossY - armThick / 2, armLen, armThick, armThick / 2);
+            ctx.fill();
+
+            return canvas.toDataURL('image/png');
+        }
+
+        function initPWA() {
+            try {
+                // Generate high-res 192x192 & 512x512 app icons
+                generatedIcon192 = generateAppIconDataURL(192);
+                generatedIcon512 = generateAppIconDataURL(512);
+
+                const appleLink = document.getElementById('appleTouchIconLink');
+                const faviconLink = document.getElementById('faviconLink');
+                const previewImg = document.getElementById('installModalIconPreview');
+                if (appleLink) appleLink.href = generatedIcon192;
+                if (faviconLink) faviconLink.href = generatedIcon192;
+                if (previewImg) previewImg.src = generatedIcon192;
+
+                // Create Dynamic Web App Manifest via Blob URL
+                const manifestObj = {
+                    short_name: 'MedReminder',
+                    name: 'MedReminder PRO - ระบบแจ้งเตือนทานยาอัจฉริยะ',
+                    description: 'ระบบแจ้งเตือนทานยาอัจฉริยะ บันทึกประวัติสุขภาพ และผู้ช่วยเภสัชกรส่วนตัว',
+                    start_url: window.location.href,
+                    display: 'standalone',
+                    orientation: 'portrait-primary',
+                    theme_color: '#0d9488',
+                    background_color: '#020617',
+                    icons: [
+                        {
+                            src: generatedIcon192,
+                            sizes: '192x192',
+                            type: 'image/png',
+                            purpose: 'any maskable'
+                        },
+                        {
+                            src: generatedIcon512,
+                            sizes: '512x512',
+                            type: 'image/png',
+                            purpose: 'any maskable'
+                        }
+                    ]
+                };
+
+                const manifestBlob = new Blob([JSON.stringify(manifestObj)], { type: 'application/manifest+json' });
+                const manifestUrl = URL.createObjectURL(manifestBlob);
+                const manifestLink = document.getElementById('dynamicManifestLink');
+                if (manifestLink) manifestLink.href = manifestUrl;
+            } catch (e) {}
+
+            // Detect Standalone App Mode (hide Install button when launched from Home Screen)
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+            if (isStandalone) {
+                const headerBtn = document.getElementById('installAppHeaderBtn');
+                if (headerBtn) headerBtn.classList.add('hidden');
+                const statusText = document.getElementById('pwaSettingsStatusText');
+                if (statusText) statusText.innerText = 'กำลังใช้งานในโหมดแอปพลิเคชันเต็มหน้าจอแล้ว';
+            }
+
+            // Detect if running inside an iframe preview
+            let isInIframe = false;
+            try {
+                isInIframe = window.top !== window.self;
+            } catch (e) {
+                isInIframe = true;
+            }
+
+            if (isInIframe) {
+                const iframeNotice = document.getElementById('iframeInstallNotice');
+                if (iframeNotice) iframeNotice.classList.remove('hidden');
+            }
+
+            // Safe Service Worker Registration (only top-level HTTPS or localhost)
+            if (!isInIframe && 'serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+                try {
+                    const swCode = `
+                        const CACHE_NAME = 'medreminder-pro-v1';
+                        self.addEventListener('install', (event) => {
+                            self.skipWaiting();
+                        });
+                        self.addEventListener('activate', (event) => {
+                            event.waitUntil(self.clients.claim());
+                        });
+                        self.addEventListener('fetch', (event) => {
+                            event.respondWith(
+                                fetch(event.request).catch(() => caches.match(event.request))
+                            );
+                        });
+                    `;
+                    const swBlob = new Blob([swCode], { type: 'application/javascript' });
+                    const swUrl = URL.createObjectURL(swBlob);
+                    navigator.serviceWorker.register(swUrl).catch(() => {});
+                } catch (err) {}
+            }
+
+            // Listen for Chrome / Edge beforeinstallprompt event
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredInstallPrompt = e;
+                const nativeBox = document.getElementById('nativePromptInstallBox');
+                if (nativeBox) nativeBox.classList.remove('hidden');
+            });
+
+            window.addEventListener('appinstalled', () => {
+                deferredInstallPrompt = null;
+                const headerBtn = document.getElementById('installAppHeaderBtn');
+                if (headerBtn) headerBtn.classList.add('hidden');
+                closeInstallModal();
+                showToast('ติดตั้งแอป MedReminder PRO ลงเครื่องเรียบร้อยแล้ว!', 'success');
+            });
+
+            // Auto-select matching OS tab in Install Modal
+            const ua = navigator.userAgent || '';
+            if (/iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) {
+                switchInstallTab('ios');
+            } else if (/Android/i.test(ua)) {
+                switchInstallTab('android');
+            } else {
+                switchInstallTab('desktop');
+            }
+        }
+
+        async function handleInstallButtonClick() {
+            if (deferredInstallPrompt) {
+                await triggerNativeInstallPrompt();
+            } else {
+                openInstallModal();
+            }
+        }
+
+        async function triggerNativeInstallPrompt() {
+            if (!deferredInstallPrompt) {
+                openInstallModal();
+                return;
+            }
+            try {
+                deferredInstallPrompt.prompt();
+                const { outcome } = await deferredInstallPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    deferredInstallPrompt = null;
+                    closeInstallModal();
+                } else {
+                    openInstallModal();
+                }
+            } catch (err) {
+                openInstallModal();
+            }
+        }
+
+        function openInstallModal() {
+            document.getElementById('installAppModal').classList.remove('hidden');
+        }
+
+        function closeInstallModal() {
+            document.getElementById('installAppModal').classList.add('hidden');
+        }
+
+        function switchInstallTab(platform) {
+            const tabs = {
+                android: { btn: 'installTabAndroid', panel: 'installGuideAndroid' },
+                ios: { btn: 'installTabIos', panel: 'installGuideIos' },
+                desktop: { btn: 'installTabDesktop', panel: 'installGuideDesktop' }
+            };
+            Object.keys(tabs).forEach(key => {
+                const btnEl = document.getElementById(tabs[key].btn);
+                const panelEl = document.getElementById(tabs[key].panel);
+                if (!btnEl || !panelEl) return;
+                if (key === platform) {
+                    btnEl.className = 'py-2 px-2 rounded-xl bg-white dark:bg-slate-900 text-teal-600 dark:text-teal-400 shadow-xs transition flex items-center justify-center gap-1.5';
+                    panelEl.classList.remove('hidden');
+                } else {
+                    btnEl.className = 'py-2 px-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition flex items-center justify-center gap-1.5';
+                    panelEl.classList.add('hidden');
+                }
+            });
+        }
+
+        function downloadSelfHTML() {
+            try {
+                const clone = document.documentElement.cloneNode(true);
+                // Clear runtime blob URLs so the saved file regenerates them cleanly on load
+                ['dynamicManifestLink', 'appleTouchIconLink', 'faviconLink'].forEach(id => {
+                    const el = clone.querySelector('#' + id);
+                    if (el) el.setAttribute('href', '');
+                });
+                const previewImg = clone.querySelector('#installModalIconPreview');
+                if (previewImg) previewImg.setAttribute('src', '');
+                const installModal = clone.querySelector('#installAppModal');
+                if (installModal) installModal.classList.add('hidden');
+
+                const fullHtml = '<!DOCTYPE html>\n' + clone.outerHTML;
+                const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = 'MedReminder-PRO.html';
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                showToast('ดาวน์โหลดไฟล์ MedReminder-PRO.html เรียบร้อยแล้ว!', 'success');
+            } catch (e) {
+                showToast('ไม่สามารถดาวน์โหลดไฟล์ได้ในขณะนี้', 'error');
+            }
+        }
+    </script>
+</body>
+</html>
